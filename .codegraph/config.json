@@ -1,0 +1,7 @@
+{
+  "projectRoot": "/opt/mysudoku",
+  "sourceDir": "src",
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules", ".next", "data", "logs"],
+  "indexInterval": "onSave"
+}
