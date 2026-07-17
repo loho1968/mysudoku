@@ -64,6 +64,7 @@ export type GameAction =
   | { type: 'REDO' }
   | { type: 'SET_SHOW_NOTES'; show: boolean }
   | { type: 'AUTO_NOTES' }
+  | { type: 'SMART_NOTES' }
   | { type: 'CHECK_ERRORS' }
   | { type: 'ADD_CHAIN_LINK'; link: ChainLink }
   | { type: 'REMOVE_CHAIN_LINK'; id: string }

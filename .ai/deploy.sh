@@ -1,34 +1,31 @@
 #!/usr/bin/env bash
-# MySudoku 发布脚本：构建生产包 + 通过 pm2 重启服务
+# MySudoku 发布脚本（本机开发 + 一键发布，Roamly 模式）
+# 构建在本机完成（内存充裕，不 OOM），只把产物 rsync 到服务器跑 next start。
 # 用法: bash .ai/deploy.sh
 set -euo pipefail
 
-# 服务器 node 装在 nvm 下，非登录 shell 默认不加载 PATH，这里显式加载
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+# 使用与服务器一致的 node 版本构建
+export PATH="/Users/lh/.nvm/versions/node/v24.18.0/bin:$PATH"
 
-cd /opt/mysudoku
+# 切到项目根目录（无论从哪调用）
+cd "$(dirname "$0")/.."
+echo "[deploy] 项目根: $(pwd)  node=$(node -v)"
 
-echo "[deploy] node=$(node -v) npm=$(npm -v) pwd=$(pwd)"
-
-# 依赖已随仓库存在；仅当 package-lock.json 比 node_modules 新时才增量安装
-if [ package-lock.json -nt node_modules ] 2>/dev/null; then
-  echo "[deploy] 检测到依赖变化，执行 npm install ..."
-  npm install
-else
-  echo "[deploy] 依赖无变化，跳过安装"
-fi
-
-echo "[deploy] 构建生产包 (next build --webpack) ..."
+echo "[deploy] 本机构建 (next build --webpack) ..."
 npm run build
 
-echo "[deploy] 重启服务 (pm2) ..."
-if pm2 describe mysudoku >/dev/null 2>&1; then
-  pm2 reload ecosystem.config.js --update-env
-else
-  pm2 start ecosystem.config.js
-fi
-pm2 save
+echo "[deploy] 同步产物到 tencent:/opt/mysudoku ..."
+rsync -az --delete \
+  --exclude node_modules \
+  --exclude .git \
+  --exclude data \
+  --exclude logs \
+  --exclude .codegraph \
+  --exclude .workbuddy \
+  --exclude '.next/cache' \
+  ./ tencent:/opt/mysudoku/
+
+echo "[deploy] 服务器同步依赖并重启 pm2 ..."
+ssh tencent 'cd /opt/mysudoku && npm install && pm2 reload ecosystem.config.js --update-env 2>/dev/null || pm2 restart mysudoku; pm2 save'
 
 echo "[deploy] 完成"
-pm2 status mysudoku

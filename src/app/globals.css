@@ -1,5 +1,62 @@
+/*
+ * 全局样式与主题变量。
+ * 亮/暗两套色板通过 CSS 变量定义，next-themes 切换 html.class(.dark) 时自动切换。
+ * 自定义颜色（棋盘高亮等）禁止硬编码十六进制值，统一走这里的变量。
+ */
+
 :root {
   --cell-font-size: 24px;
+  --cell-size: 40px;
+
+  /* 棋盘高亮色板（亮色） */
+  --cell-row-col-highlight: #e6f4ff;
+  --cell-same-number: #fff7e6;
+  --cell-selected-bg: #bae0ff;
+  --cell-selected-ring: #1677ff;
+  --cell-sticky-hover: #e8e8e8;
+
+  /* 棋盘文字色（亮色） */
+  --cell-value-given: #000000;
+  --cell-value-user: #1677ff;
+  --cell-value-error: #ff4d4f;
+
+  /* 棋盘边框（亮色） */
+  --grid-border: #333;
+  --grid-border-thick: #1a1a1a;
+  --cell-border: #d9d9d9;
+  --cell-border-light: #e8e8e8;
+
+  /* 候选数字色（亮色） */
+  --note-color: #999;
+
+  /* 页面背景 */
+  --app-bg: #f5f5f5;
+}
+
+html.dark {
+  /* 棋盘高亮色板（暗色），降饱和、提对比 */
+  --cell-row-col-highlight: #112545;
+  --cell-same-number: #3d2e0a;
+  --cell-selected-bg: #15395b;
+  --cell-selected-ring: #4096ff;
+  --cell-sticky-hover: #1f1f1f;
+
+  /* 棋盘文字色（暗色） */
+  --cell-value-given: #ffffff;
+  --cell-value-user: #4096ff;
+  --cell-value-error: #ff7875;
+
+  /* 棋盘边框（暗色） */
+  --grid-border: #555;
+  --grid-border-thick: #777;
+  --cell-border: #303030;
+  --cell-border-light: #262626;
+
+  /* 候选数字色（暗色） */
+  --note-color: #666;
+
+  /* 页面背景 */
+  --app-bg: #141414;
 }
 
 * {
@@ -9,39 +66,183 @@
 body {
   margin: 0;
   padding: 0;
-  background: #f5f5f5;
+  background: var(--app-bg);
+  transition: background-color 0.2s ease;
 }
 
-/* 棋盘单元格高亮 */
+/* ---- 棋盘网格 ---- */
+
+.sudoku-grid {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  border: 2px solid var(--grid-border-thick);
+  width: fit-content;
+  margin: 0 auto;
+}
+
+.sudoku-grid-empty {
+  text-align: center;
+  padding: 40px;
+  color: #999;
+}
+
+/* ---- 单元格 ---- */
+
+.cell {
+  position: relative;
+  width: var(--cell-size);
+  height: var(--cell-size);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid var(--cell-border);
+  border-bottom: 1px solid var(--cell-border);
+  cursor: pointer;
+  user-select: none;
+  font-size: var(--cell-font-size);
+  transition: background-color 0.15s ease;
+}
+
+/* 移除最后一列的右边框 */
+.cell:nth-child(9n) {
+  border-right: none;
+}
+
+/* 移除最后一行的下边框 */
+.cell:nth-child(n + 73) {
+  border-bottom: none;
+}
+
+/* 3×3 宫框：第 3、6 列右边框加粗 */
+.cell:nth-child(9n + 3),
+.cell:nth-child(9n + 6) {
+  border-right: 2px solid var(--grid-border-thick);
+}
+
+/* 3×3 宫框：第 3、6 行下边框加粗 */
+.cell:nth-child(n + 19):nth-child(-n + 27),
+.cell:nth-child(n + 46):nth-child(-n + 54) {
+  border-bottom: 2px solid var(--grid-border-thick);
+}
+
+/* ---- 棋盘单元格高亮 ---- */
+
 .cell.row-highlight,
 .cell.col-highlight {
-  background-color: #e6f4ff;
+  background-color: var(--cell-row-col-highlight);
 }
 
 .cell.same-number {
-  background-color: #fff7e6;
+  background-color: var(--cell-same-number);
 }
 
 .cell.selected {
-  background-color: #bae0ff;
-  box-shadow: 0 0 0 2px #1677ff inset;
+  background-color: var(--cell-selected-bg);
+  box-shadow: 0 0 0 2px var(--cell-selected-ring) inset;
 }
 
 .cell .cell-value.given {
   font-weight: 700;
-  color: #000;
+  color: var(--cell-value-given);
 }
 
 .cell .cell-value.user-filled {
   font-weight: 400;
-  color: #1677ff;
+  color: var(--cell-value-user);
 }
 
 .cell.error .cell-value {
-  color: #ff4d4f;
+  color: var(--cell-value-error);
 }
 
 .cell.sticky-hover:hover {
-  background-color: #e8e8e8;
+  background-color: var(--cell-sticky-hover);
   cursor: copy;
+}
+
+/* ---- 候选数笔记 ---- */
+
+.notes-layer {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.notes-layer .note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--note-color);
+}
+
+.notes-layer .note.active {
+  font-weight: 600;
+  color: var(--cell-value-user);
+}
+
+/* ---- 数字输入面板 ---- */
+
+.number-pad {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.number-pad-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  width: fit-content;
+}
+
+.number-btn {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--cell-border);
+  border-radius: 6px;
+  background: transparent;
+  font-size: 18px;
+  cursor: pointer;
+  user-select: none;
+  color: var(--cell-value-user);
+  transition: all 0.12s ease;
+}
+
+.number-btn:hover {
+  background: var(--cell-row-col-highlight);
+  border-color: var(--cell-selected-ring);
+}
+
+.number-btn:active {
+  transform: scale(0.93);
+}
+
+.number-btn.sticky-active {
+  background: var(--cell-selected-bg);
+  border-color: var(--cell-selected-ring);
+  box-shadow: 0 0 0 1px var(--cell-selected-ring) inset;
+  font-weight: 700;
+}
+
+.eraser-btn {
+  color: var(--cell-value-error);
+  grid-column: 2;
+}
+
+/* ---- 游戏工具栏 ---- */
+
+.game-toolbar {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 8px;
 }

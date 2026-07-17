@@ -1,0 +1,414 @@
+"use client";
+
+/**
+ * @file GameContext.tsx
+ * @author loho
+ *
+ * 游戏状态上下文与 reducer。
+ *
+ * 使用 React Context + useReducer 管理游戏核心状态（棋盘、选中、输入模式、
+ * 步骤历史等），不引入额外状态管理库。
+ *
+ * 设计说明见 PLAN.md 七、核心实现要点。
+ */
+
+import {
+  createContext,
+  useContext,
+  useReducer,
+  type ReactNode,
+} from "react";
+import type { GameState, GameAction, CellData } from "@/types/game";
+import { hasErrors } from "@/lib/sudoku/validator";
+import { getCandidates } from "@/lib/sudoku/candidates";
+import { applySmartNotes } from "@/lib/sudoku/techniques";
+
+// ---- 初始状态 ----
+
+const initialState: GameState = {
+  puzzleId: null,
+  grid: [],
+  selectedCells: [],
+  inputMode: "answer",
+  stickyNumber: null,
+  isStickyMode: false,
+  steps: [],
+  currentStepIndex: -1,
+  showNotes: false,
+  noteType: "none",
+  smartNotesExpired: false,
+  chains: [],
+  timerRunning: false,
+  elapsedSeconds: 0,
+  isCompleted: false,
+  errorCheckResult: null,
+};
+
+// ---- 辅助函数 ----
+
+/**
+ * 将 81 字符题目字符串解析为 CellData 9×9 网格。
+ * @param puzzle - 81 字符字符串（"0" 或 "." 表示空格）。
+ * @returns 填充好的 CellData 网格。
+ */
+function parsePuzzleToGrid(puzzle: string): CellData[][] {
+  const grid: CellData[][] = [];
+  for (let r = 0; r < 9; r++) {
+    grid[r] = [];
+    for (let c = 0; c < 9; c++) {
+      const ch = puzzle[r * 9 + c];
+      const value = ch === "0" || ch === "." ? null : parseInt(ch, 10);
+      grid[r][c] = {
+        value,
+        isGiven: value !== null,
+        notes: [],
+        isError: false,
+      };
+    }
+  }
+  return grid;
+}
+
+/**
+ * 深拷贝 9×9 CellData 网格（避免 notes 数组引用共享）。
+ */
+function cloneGrid(grid: CellData[][]): CellData[][] {
+  return grid.map((row) =>
+    row.map((cell) => ({ ...cell, notes: [...cell.notes] }))
+  );
+}
+
+/**
+ * 将 CellData 网格转为 number 网格（null → 0），供算法库使用。
+ */
+function toNumberGrid(grid: CellData[][]): number[][] {
+  return grid.map((row) => row.map((cell) => cell.value ?? 0));
+}
+
+/**
+ * 获取填入/删除数字 (row, col) 后受影响的格子坐标。
+ * 包括同行、同列、同宫的全部格子（去重）。
+ */
+function getAffectedCells(
+  row: number,
+  col: number
+): [number, number][] {
+  const seen = new Set<string>();
+  const cells: [number, number][] = [];
+  const add = (r: number, c: number) => {
+    const key = `${r}-${c}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      cells.push([r, c]);
+    }
+  };
+  for (let c = 0; c < 9; c++) add(row, c);
+  for (let r = 0; r < 9; r++) add(r, col);
+  const br = Math.floor(row / 3) * 3;
+  const bc = Math.floor(col / 3) * 3;
+  for (let r = br; r < br + 3; r++)
+    for (let c = bc; c < bc + 3; c++) add(r, c);
+  return cells;
+}
+
+// ---- Reducer ----
+
+function gameReducer(state: GameState, action: GameAction): GameState {
+  switch (action.type) {
+    case "LOAD_PUZZLE": {
+      const grid = parsePuzzleToGrid(action.puzzle);
+      return {
+        ...initialState,
+        puzzleId: action.puzzleId,
+        grid,
+        inputMode: "answer",
+        noteType: "none",
+        showNotes: false,
+      };
+    }
+
+    case "SELECT_CELL": {
+      const { row, col, additive } = action;
+
+      if (additive) {
+        // Ctrl/Cmd+点击：toggle 单个格子
+        const exists = state.selectedCells.some(
+          ([r, c]) => r === row && c === col
+        );
+        const selectedCells: [number, number][] = exists
+          ? state.selectedCells.filter(
+              ([r, c]) => !(r === row && c === col)
+            )
+          : [...state.selectedCells, [row, col] as [number, number]];
+        return { ...state, selectedCells };
+      }
+
+      // 普通点击：单选
+      return { ...state, selectedCells: [[row, col]] };
+    }
+
+    case "CLEAR_SELECTION":
+      return { ...state, selectedCells: [] };
+
+    case "SET_CELL_VALUE": {
+      const { row, col, value } = action;
+      const newGrid = cloneGrid(state.grid);
+      const cell = newGrid[row]?.[col];
+      // 初始数字不可修改
+      if (!cell || cell.isGiven) return state;
+
+      // 重复输入已有数字 → 擦除（用户习惯：再按一次同一数字 = 撤销）
+      const effectiveValue = value === cell.value ? null : value;
+
+      const change = {
+        row,
+        col,
+        prevValue: cell.value,
+        prevNotes: [...cell.notes],
+        newValue: effectiveValue,
+        newNotes: [],
+      };
+
+      // 丢弃 currentStepIndex 之后的步骤（新分支）
+      const steps = state.steps.slice(0, state.currentStepIndex + 1);
+      steps.push({
+        type: effectiveValue === null ? "erase" : "fill",
+        changes: [change],
+      });
+
+      newGrid[row][col] = {
+        ...cell,
+        value: effectiveValue,
+        notes: effectiveValue !== null ? [] : cell.notes,
+        isError: false,
+      };
+
+      // 自动更新受影响格的普通笔记（如果当前 noteType 非 smart）
+      const numGrid = toNumberGrid(newGrid);
+      if (state.noteType !== "smart") {
+        for (const [ar, ac] of getAffectedCells(row, col)) {
+          if (newGrid[ar][ac].value !== null) {
+            newGrid[ar][ac].notes = [];
+          } else {
+            newGrid[ar][ac].notes = Array.from(
+              getCandidates(numGrid, ar, ac)
+            ).sort();
+          }
+        }
+      }
+
+      // 若填入数字后棋盘完整且无错误 → completed
+      const allFilled = newGrid.every((r) =>
+        r.every((c) => c.value !== null)
+      );
+
+      const result: GameState = {
+        ...state,
+        grid: newGrid,
+        steps,
+        currentStepIndex: steps.length - 1,
+        smartNotesExpired: state.noteType === "smart" ? true : state.smartNotesExpired,
+        isCompleted: allFilled,
+        errorCheckResult: null,
+      };
+      return result;
+    }
+
+    case "CHECK_ERRORS": {
+      const numberGrid = toNumberGrid(state.grid);
+      const hasErr = hasErrors(numberGrid);
+      return { ...state, errorCheckResult: hasErr ? true : false };
+    }
+
+    case "AUTO_NOTES": {
+      // 重新计算全部格子的普通笔记
+      const numGrid = toNumberGrid(state.grid);
+      const newGrid = cloneGrid(state.grid);
+      for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+          if (newGrid[r][c].value !== null) {
+            newGrid[r][c].notes = [];
+          } else {
+            newGrid[r][c].notes = Array.from(
+              getCandidates(numGrid, r, c)
+            ).sort();
+          }
+        }
+      }
+      return {
+        ...state,
+        grid: newGrid,
+        noteType: "normal",
+        smartNotesExpired: false,
+      };
+    }
+
+    case "SMART_NOTES": {
+      // 智能笔记：在普通笔记基础上叠加技巧推理
+      if (state.grid.length === 0) return state;
+      const numGrid = toNumberGrid(state.grid);
+      const currentNotes = state.grid.map((row) =>
+        row.map((cell) => [...cell.notes])
+      );
+      const smartNotes = applySmartNotes(numGrid, currentNotes);
+      const newGrid = cloneGrid(state.grid);
+      for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+          if (newGrid[r][c].value === null) {
+            newGrid[r][c].notes = smartNotes[r][c];
+          }
+        }
+      }
+      return {
+        ...state,
+        grid: newGrid,
+        noteType: "smart",
+        smartNotesExpired: false,
+      };
+    }
+
+    case "SET_INPUT_MODE":
+      return { ...state, inputMode: action.mode };
+
+    case "SET_SHOW_NOTES":
+      return { ...state, showNotes: action.show };
+
+    case "SET_STICKY_NUMBER":
+      return {
+        ...state,
+        stickyNumber: action.number,
+        isStickyMode: action.number !== null,
+      };
+
+    case "TICK_TIMER":
+      return { ...state, elapsedSeconds: state.elapsedSeconds + 1 };
+
+    case "TOGGLE_TIMER":
+      return { ...state, timerRunning: !state.timerRunning };
+
+    case "RESET_TIMER":
+      return { ...state, elapsedSeconds: 0, timerRunning: false };
+
+    case "RESTORE_STATE":
+      return { ...action.state };
+
+    case "TOGGLE_NOTE": {
+      const { row, col, note } = action;
+      const oldCell = state.grid[row]?.[col];
+      if (!oldCell || oldCell.isGiven || oldCell.value !== null) return state;
+
+      const newGrid = cloneGrid(state.grid);
+      const cell = newGrid[row][col];
+      const notes = cell.notes.includes(note)
+        ? cell.notes.filter((n: number) => n !== note)
+        : [...cell.notes, note].sort();
+
+      const steps = state.steps.slice(0, state.currentStepIndex + 1);
+      steps.push({
+        type: "toggleNote",
+        changes: [
+          {
+            row,
+            col,
+            prevValue: cell.value,
+            prevNotes: [...cell.notes],
+            newValue: cell.value,
+            newNotes: notes,
+          },
+        ],
+      });
+
+      newGrid[row][col] = { ...cell, notes };
+
+      return {
+        ...state,
+        grid: newGrid,
+        steps,
+        currentStepIndex: steps.length - 1,
+      };
+    }
+
+    case "UNDO": {
+      if (state.currentStepIndex < 0) return state;
+      const undoStep = state.steps[state.currentStepIndex];
+      const undoGrid = cloneGrid(state.grid);
+
+      for (const change of undoStep.changes) {
+        const cell = undoGrid[change.row][change.col];
+        undoGrid[change.row][change.col] = {
+          ...cell,
+          value: change.prevValue,
+          notes: change.prevNotes,
+          isError: false,
+        };
+      }
+
+      return {
+        ...state,
+        grid: undoGrid,
+        currentStepIndex: state.currentStepIndex - 1,
+        isCompleted: false,
+      };
+    }
+
+    case "REDO": {
+      if (state.currentStepIndex >= state.steps.length - 1) return state;
+      const redoStep = state.steps[state.currentStepIndex + 1];
+      const redoGrid = cloneGrid(state.grid);
+
+      for (const change of redoStep.changes) {
+        const cell = redoGrid[change.row][change.col];
+        redoGrid[change.row][change.col] = {
+          ...cell,
+          value: change.newValue,
+          notes: change.newNotes,
+          isError: false,
+        };
+      }
+
+      return {
+        ...state,
+        grid: redoGrid,
+        currentStepIndex: state.currentStepIndex + 1,
+      };
+    }
+
+    default:
+      return state;
+  }
+}
+
+// ---- Context ----
+
+interface GameContextValue {
+  state: GameState;
+  dispatch: React.Dispatch<GameAction>;
+}
+
+const GameContext = createContext<GameContextValue | null>(null);
+
+// ---- Provider ----
+
+export function GameProvider({ children }: { children: ReactNode }) {
+  const [state, dispatch] = useReducer(gameReducer, initialState);
+
+  return (
+    <GameContext.Provider value={{ state, dispatch }}>
+      {children}
+    </GameContext.Provider>
+  );
+}
+
+// ---- Hook ----
+
+/**
+ * 在子组件中获取游戏状态与 dispatch。
+ * 必须在 `<GameProvider>` 内部调用，否则抛出异常。
+ */
+export function useGame(): GameContextValue {
+  const ctx = useContext(GameContext);
+  if (!ctx) {
+    throw new Error("useGame 必须在 <GameProvider> 内部调用");
+  }
+  return ctx;
+}
