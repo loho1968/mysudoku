@@ -16,7 +16,7 @@ import { SudokuGrid } from "@/components/SudokuGrid/SudokuGrid";
 import { NumberPad } from "@/components/Controls/NumberPad";
 import { GameToolBar } from "@/components/Controls/GameToolBar";
 import { useKeyboard } from "@/hooks/useKeyboard";
-import { useLocalProgress } from "@/hooks/useLocalProgress";
+import { useLocalProgress, markPlayed, saveLastPuzzle } from "@/hooks/useLocalProgress";
 import type { GameAction } from "@/types/game";
 
 const { Title } = Typography;
@@ -44,12 +44,20 @@ function GameContent({ puzzle }: { puzzle: PuzzleData }) {
       puzzle: puzzle.puzzle,
       solution: puzzle.solution,
     } as GameAction);
+    saveLastPuzzle(puzzle.id, puzzle.puzzle, puzzle.solution);
   }, [puzzle, dispatch]);
 
   useEffect(() => {
     if (state.puzzleId) restore();
     // eslint-disable-next-line react-hooks/set-state-in-effect
   }, [state.puzzleId]);
+
+  // 完成时标记已做过
+  useEffect(() => {
+    if (state.isCompleted && state.puzzleId) {
+      markPlayed(state.puzzleId);
+    }
+  }, [state.isCompleted, state.puzzleId]);
 
   return (
     <div

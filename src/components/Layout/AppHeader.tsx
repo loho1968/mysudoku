@@ -8,12 +8,22 @@
  * 左侧标题 + 右侧主题切换 + 编辑模式切换。
  */
 
-import { Layout, Typography, Space, theme as antdTheme } from "antd";
+import { Layout, Typography, Space, Button, theme as antdTheme } from "antd";
+import { ExportOutlined, DatabaseOutlined } from "@ant-design/icons";
 import { ThemeToggle } from "@/components/Theme/ThemeToggle";
-import { EditModeToggle } from "@/components/Auth/EditModeToggle";
+import { ShortcutHelp } from "@/components/Layout/ShortcutHelp";
+import { PuzzlePicker } from "@/components/Layout/PuzzlePicker";
+import { TechniquePicker } from "@/components/Layout/TechniquePicker";
 
 const { Header } = Layout;
 const { Title } = Typography;
+
+/** 技巧练习外链（sudoku.coach） */
+const PRACTICE_URL =
+  "https://sudoku.coach/zh-cn/practice/locked-candidate";
+
+/** 题库维护内链 */
+const PUZZLES_URL = "/puzzles";
 
 export function AppHeader() {
   const { token } = antdTheme.useToken();
@@ -34,7 +44,25 @@ export function AppHeader() {
         mysudoku
       </Title>
       <Space size="middle">
-        <EditModeToggle />
+        <Button
+          type="link"
+          href={PRACTICE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          icon={<ExportOutlined />}
+        >
+          技巧练习
+        </Button>
+        <PuzzlePicker />
+        <TechniquePicker />
+        <Button
+          type="text"
+          icon={<DatabaseOutlined />}
+          onClick={() => window.open(PUZZLES_URL, "_blank")}
+        >
+          题库维护
+        </Button>
+        <ShortcutHelp />
         <ThemeToggle />
       </Space>
     </Header>

@@ -16,7 +16,7 @@ import {
   App,
 } from "antd";
 import { apiFetch } from "@/hooks/useEditMode";
-import { DIFFICULTY_LABELS } from "@/config/constants";
+import { DIFFICULTY_LABELS, TECHNIQUE_LIST } from "@/config/constants";
 import type { Puzzle, Tag as TagType } from "@/types/sudoku";
 
 const { TextArea } = Input;
@@ -65,6 +65,7 @@ export function PuzzleForm({
         source: puzzle.source || "",
         remark: puzzle.remark || "",
         tagIds: puzzle.tags.map((t) => t.id),
+        techniqueNames: puzzle.techniqueNames || [],
       });
     } else if (open) {
       form.resetFields();
@@ -83,6 +84,7 @@ export function PuzzleForm({
         source: values.source || null,
         remark: values.remark || null,
         tagIds: values.tagIds || [],
+        techniqueNames: values.techniqueNames || [],
       };
 
       const url = isEdit ? `/api/puzzles/${puzzle!.id}` : "/api/puzzles";
@@ -179,6 +181,17 @@ export function PuzzleForm({
                   {t.name}
                 </span>
               ),
+            }))}
+          />
+        </Form.Item>
+
+        <Form.Item name="techniqueNames" label="涉及技巧">
+          <Select
+            mode="multiple"
+            placeholder="选择涉及技巧（可选）"
+            options={TECHNIQUE_LIST.map((t) => ({
+              value: t,
+              label: t,
             }))}
           />
         </Form.Item>

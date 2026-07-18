@@ -9,7 +9,7 @@
  * 功能：模式切换、撤销、笔记开关、差错检查、计时器、智能笔记、粘滞与笔记状态指示。
  */
 
-import { Segmented, Button, Switch, Space, Tag, App } from "antd";
+import { Segmented, Button, Switch, Tag, App } from "antd";
 import {
   UndoOutlined,
   BulbOutlined,
@@ -41,36 +41,49 @@ export function GameToolBar() {
   };
 
   const handleSmartNotes = () => {
+    // 智能笔记按钮：计算候选数并自动打开显示开关
+    if (!state.showNotes) {
+      dispatch({ type: "SET_SHOW_NOTES", show: true });
+    }
     dispatch({ type: "SMART_NOTES" });
-    message.info("智能笔记已更新");
   };
 
   return (
     <div className="game-toolbar">
-      <Space size="middle" wrap>
-        {/* 答题 / 笔记模式切换 */}
-        <Segmented<InputMode>
-          options={[
-            { value: "answer", label: "答题" },
-            { value: "note", label: "笔记" },
-          ]}
-          value={state.inputMode}
-          onChange={(value) =>
-            dispatch({ type: "SET_INPUT_MODE", mode: value })
-          }
-        />
+      {/* 顶部：计时器 */}
+      <div className="toolbar-timer-row">
+        <GameTimer />
+      </div>
 
-        {/* 撤销 */}
+      {/* 模式切换：答题 / 笔记 */}
+      <Segmented<InputMode>
+        block
+        size="large"
+        options={[
+          { value: "answer", label: "答题" },
+          { value: "note", label: "笔记" },
+        ]}
+        value={state.inputMode}
+        onChange={(value) => dispatch({ type: "SET_INPUT_MODE", mode: value })}
+      />
+
+      {/* 功能按钮 2x2 网格 */}
+      <div className="toolbar-actions">
         <Button
           icon={<UndoOutlined />}
           disabled={state.currentStepIndex < 0}
           onClick={() => dispatch({ type: "UNDO" })}
+          block
         >
           撤销
         </Button>
-
-        {/* 笔记显示开关 */}
-        <span>
+        <Button icon={<BulbOutlined />} onClick={handleSmartNotes} block>
+          智能笔记
+        </Button>
+        <Button icon={<AlertOutlined />} onClick={handleCheckErrors} block>
+          差错检查
+        </Button>
+        <div className="toolbar-notes-toggle">
           <Switch
             checkedChildren="笔记开"
             unCheckedChildren="笔记关"
@@ -78,16 +91,12 @@ export function GameToolBar() {
             onChange={(checked) =>
               dispatch({ type: "SET_SHOW_NOTES", show: checked })
             }
-            size="small"
           />
-        </span>
+        </div>
+      </div>
 
-        {/* 智能笔记 */}
-        <Button icon={<BulbOutlined />} onClick={handleSmartNotes}>
-          智能笔记
-        </Button>
-
-        {/* 笔记类型 + 过期状态 */}
+      {/* 状态标签 */}
+      <div className="toolbar-tags">
         {state.noteType === "smart" && !state.smartNotesExpired && (
           <Tag color="purple">智能笔记</Tag>
         )}
@@ -96,23 +105,11 @@ export function GameToolBar() {
             智能笔记过期
           </Tag>
         )}
-        {state.noteType === "normal" && (
-          <Tag>普通笔记</Tag>
-        )}
-
-        {/* 差错检查 */}
-        <Button icon={<AlertOutlined />} onClick={handleCheckErrors}>
-          差错检查
-        </Button>
-
-        {/* 计时器 */}
-        <GameTimer />
-
-        {/* 粘滞模式指示 */}
+        {state.noteType === "normal" && <Tag>普通笔记</Tag>}
         {state.isStickyMode && (
           <Tag color="blue">粘滞: {state.stickyNumber}</Tag>
         )}
-      </Space>
+      </div>
     </div>
   );
 }

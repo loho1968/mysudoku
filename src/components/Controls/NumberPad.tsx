@@ -87,16 +87,17 @@ export function NumberPad() {
             title={
               isStickyMode && stickyNumber === num
                 ? "点击退出粘滞模式"
-                : `双击进入粘滞模式`
+                : "双击进入粘滞模式"
             }
           >
             {num}
           </button>
         ))}
-        <button className="number-btn eraser-btn" onClick={handleEraser}>
-          <DeleteOutlined />
-        </button>
       </div>
+      <button className="eraser-btn" onClick={handleEraser} title="清除选中格">
+        <DeleteOutlined />
+        <span className="eraser-label">橡皮擦</span>
+      </button>
     </div>
   );
 }

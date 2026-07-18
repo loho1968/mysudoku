@@ -6,6 +6,8 @@ export interface Puzzle {
   source: string | null;
   remark: string | null;
   tags: Tag[];
+  /** 涉及技巧名称列表（来自 puzzle_techniques 关联表） */
+  techniqueNames?: string[];
   created_at: string;
   updated_at: string;
 }

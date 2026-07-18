@@ -4,12 +4,14 @@
  * @file puzzles/page.tsx
  * @author loho
  *
- * 题目管理页面。
- * 需要编辑模式才能访问，否则显示引导按钮。
+ * 题库维护页面。
+ *
+ * 默认进入浏览模式（只读），可从右上角切换为维护模式（需密码验证）。
+ * 维护模式下可增、删、改题目和标签。
  */
 
-import { Typography, Card, Button, Space } from "antd";
-import { LockOutlined } from "@ant-design/icons";
+import { Typography, Card, Button, Space, App } from "antd";
+import { EditOutlined, EyeOutlined } from "@ant-design/icons";
 import { useEditMode } from "@/hooks/useEditMode";
 import { EditModeModal } from "@/components/Auth/EditModeModal";
 import { PuzzleTable } from "@/components/PuzzleManager/PuzzleTable";
@@ -17,7 +19,7 @@ import { PuzzleTable } from "@/components/PuzzleManager/PuzzleTable";
 const { Title, Text } = Typography;
 
 /**
- * 题目管理页面。
+ * 题库页面。
  */
 export default function PuzzlesPage() {
   const {
@@ -28,59 +30,47 @@ export default function PuzzlesPage() {
     verifyPassword,
   } = useEditMode();
 
-  const handleSuccess = (password: string) => {
+  const handlePasswordSuccess = (password: string) => {
     sessionStorage.setItem("edit_password", password);
     verifyPassword(password);
   };
 
-  if (!isEditMode) {
-    return (
-      <div
-        style={{
-          padding: 24,
-          maxWidth: 600,
-          margin: "0 auto",
-          height: "100%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <Card style={{ width: "100%", textAlign: "center" }}>
-          <Space orientation="vertical" size="large">
-            <LockOutlined style={{ fontSize: 48, color: "#999" }} />
-            <Title level={4}>需要编辑模式</Title>
-            <Text type="secondary">
-              输入编辑密码以管理题目和标签。
-            </Text>
-            <Button type="primary" size="large" onClick={toggleEditMode}>
-              进入编辑模式
-            </Button>
-            <Button
-              type="link"
-              onClick={() => (window.location.href = "/game")}
-            >
-              返回游戏
-            </Button>
-          </Space>
-          <EditModeModal
-            open={showPasswordModal}
-            onClose={() => setShowPasswordModal(false)}
-            onSuccess={handleSuccess}
-          />
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <div style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
       <Card>
-        <Title level={3} style={{ marginBottom: 16 }}>
-          题目管理
-        </Title>
-        <PuzzleTable />
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 16,
+          }}
+        >
+          <div>
+            <Title level={3} style={{ margin: 0 }}>
+              题目管理
+            </Title>
+            <Text type="secondary">
+              {isEditMode ? "维护模式" : "浏览模式"}
+            </Text>
+          </div>
+          <Button
+            type={isEditMode ? "default" : "primary"}
+            icon={isEditMode ? <EyeOutlined /> : <EditOutlined />}
+            onClick={toggleEditMode}
+          >
+            {isEditMode ? "退出维护模式" : "进入维护模式"}
+          </Button>
+        </div>
+
+        <PuzzleTable readOnly={!isEditMode} />
       </Card>
+
+      <EditModeModal
+        open={showPasswordModal}
+        onClose={() => setShowPasswordModal(false)}
+        onSuccess={handlePasswordSuccess}
+      />
     </div>
   );
 }

@@ -15,9 +15,8 @@
  */
 
 import { useCallback, useEffect, useRef } from "react";
-import { Modal } from "antd";
 import { useGame } from "@/contexts/GameContext";
-import { PROGRESS_KEY } from "@/config/constants";
+import { PLAYED_SET_KEY, PROGRESS_KEY, LAST_PUZZLE_KEY } from "@/config/constants";
 import type { GameState, LocalProgress, CellData } from "@/types/game";
 
 /**
@@ -105,10 +104,85 @@ export function clearProgress(): void {
   }
 }
 
+/**
+ * 读取当前存档（供外部判断是否有未完成进度）。
+ */
+export function getSavedProgress(): LocalProgress | null {
+  return loadFromStorage();
+}
+
+/**
+ * 记录最后玩的题目（last puzzle），用于首页跨题目自动恢复。
+ * 写入 LAST_PUZZLE_KEY，格式：{ puzzleId, puzzle, solution? }
+ */
+export function saveLastPuzzle(
+  puzzleId: string,
+  puzzle: string,
+  solution?: string | null
+): void {
+  try {
+    localStorage.setItem(
+      LAST_PUZZLE_KEY,
+      JSON.stringify({ puzzleId, puzzle, solution })
+    );
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * 读取最后玩的题目记录。
+ */
+export function getLastPuzzle(): {
+  puzzleId: string;
+  puzzle: string;
+  solution?: string | null;
+} | null {
+  try {
+    const raw = localStorage.getItem(LAST_PUZZLE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 标记某道题已做完（写入 PLAYED_SET_KEY 集合）。
+ */
+export function markPlayed(puzzleId: string): void {
+  try {
+    const raw = localStorage.getItem(PLAYED_SET_KEY);
+    const set = new Set<string>(raw ? (JSON.parse(raw) as string[]) : []);
+    set.add(puzzleId);
+    localStorage.setItem(PLAYED_SET_KEY, JSON.stringify(Array.from(set)));
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * 检查某道题是否做过。
+ */
+export function isPlayed(puzzleId: string): boolean {
+  try {
+    const raw = localStorage.getItem(PLAYED_SET_KEY);
+    if (!raw) return false;
+    const set = new Set<string>(JSON.parse(raw) as string[]);
+    return set.has(puzzleId);
+  } catch {
+    return false;
+  }
+}
+
 const SAVE_DEBOUNCE_MS = 3000;
 
 /**
  * 进度保存 hook。在 GameProvider 内部调用。
+ *
+ * - 自动保存：状态变化后 debounce 写入 localStorage
+ * - 页面关闭前立即保存（beforeunload）
+ * - restore() 改为直接恢复，**不再弹确认窗**（符合"无脑恢复"需求）
  */
 export function useLocalProgress() {
   const { state, dispatch } = useGame();
@@ -119,7 +193,6 @@ export function useLocalProgress() {
   }, [state]);
 
   // 自动保存（debounce）
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!state.puzzleId || state.grid.length === 0) return;
     const timer = setTimeout(() => {
@@ -150,7 +223,7 @@ export function useLocalProgress() {
     return () => window.removeEventListener("beforeunload", save);
   }, []);
 
-  // 恢复存档
+  // 恢复存档：直接恢复，不弹确认窗
   const restore = useCallback(() => {
     const saved = loadFromStorage();
     if (
@@ -158,20 +231,9 @@ export function useLocalProgress() {
       saved.puzzleId === state.puzzleId &&
       saved.savedAt
     ) {
-      Modal.confirm({
-        title: "发现未完成的游戏",
-        content: "是否恢复上次的进度？",
-        okText: "恢复",
-        cancelText: "重新开始",
-        onOk: () => {
-          dispatch({
-            type: "RESTORE_STATE",
-            state: toGameState(saved),
-          });
-        },
-        onCancel: () => {
-          clearProgress();
-        },
+      dispatch({
+        type: "RESTORE_STATE",
+        state: toGameState(saved),
       });
     }
   }, [state.puzzleId, dispatch]);

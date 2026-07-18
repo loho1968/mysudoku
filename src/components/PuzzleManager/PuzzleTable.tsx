@@ -6,6 +6,9 @@
  *
  * 题目列表表格。
  * 支持分页、搜索、难度筛选、编辑/删除操作。
+ *
+ * 支持 readOnly 属性：只读模式下隐藏写操作（导入/标签/新增/编辑/删除），
+ * 适合"浏览模式"使用。
  */
 
 import { useEffect, useState, useCallback } from "react";
@@ -27,9 +30,10 @@ import {
   ImportOutlined,
   TagsOutlined,
   SearchOutlined,
+  PlayCircleOutlined,
 } from "@ant-design/icons";
 import { apiFetch } from "@/hooks/useEditMode";
-import { DIFFICULTY_LABELS } from "@/config/constants";
+import { DIFFICULTY_LABELS, PLAYED_SET_KEY } from "@/config/constants";
 import type { Puzzle, Tag as TagType } from "@/types/sudoku";
 import { PuzzleForm } from "./PuzzleForm";
 import { PuzzleImportModal } from "./PuzzleImportModal";
@@ -45,10 +49,26 @@ const DIFFICULTY_COLORS: Record<number, string> = {
   4: "red",
 };
 
+/** 读 localStorage 已做过集合。 */
+function getPlayedSet(): Set<string> {
+  try {
+    const raw = localStorage.getItem(PLAYED_SET_KEY);
+    if (!raw) return new Set();
+    return new Set(JSON.parse(raw) as string[]);
+  } catch {
+    return new Set();
+  }
+}
+
+interface PuzzleTableProps {
+  /** 只读模式：隐藏写操作按钮，仅搜索/筛选/查看。默认 false。 */
+  readOnly?: boolean;
+}
+
 /**
  * 题目列表管理组件。
  */
-export function PuzzleTable() {
+export function PuzzleTable({ readOnly = false }: PuzzleTableProps) {
   const { message } = App.useApp();
   const [puzzles, setPuzzles] = useState<Puzzle[]>([]);
   const [total, setTotal] = useState(0);
@@ -61,6 +81,11 @@ export function PuzzleTable() {
   const [showForm, setShowForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [showTags, setShowTags] = useState(false);
+  const [playedSet, setPlayedSet] = useState<Set<string>>(getPlayedSet);
+  // playedSet 在每次 fetchPuzzles 完成时刷新（localStorage 可能被其他标签页修改）
+  const refreshPlayedSet = useCallback(() => {
+    setPlayedSet(getPlayedSet());
+  }, []);
 
   const fetchPuzzles = useCallback(async () => {
     setLoading(true);
@@ -77,18 +102,22 @@ export function PuzzleTable() {
       if (data.success) {
         setPuzzles(data.data.list);
         setTotal(data.data.total);
+        // 刷新"已做过"集合
+        refreshPlayedSet();
       }
     } catch {
       message.error("加载题目列表失败");
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, keyword, difficulty]);
+  }, [page, pageSize, keyword, difficulty, refreshPlayedSet]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchPuzzles();
   }, [fetchPuzzles]);
+
+  // 仅在浏览器端初始读取"已做过"集合（不受 fetch 的 refreshPlayedSet 调用覆盖）
 
   const handleDelete = async (id: string) => {
     try {
@@ -106,6 +135,15 @@ export function PuzzleTable() {
   };
 
   const columns = [
+    {
+      title: "完成",
+      key: "played",
+      width: 60,
+      render: (_: unknown, record: Puzzle) =>
+        playedSet.has(record.id) ? (
+          <PlayCircleOutlined style={{ color: "#52c41a", fontSize: 16 }} />
+        ) : null,
+    },
     {
       title: "题面预览",
       dataIndex: "puzzle",
@@ -151,31 +189,50 @@ export function PuzzleTable() {
       key: "created_at",
       width: 170,
     },
-    {
-      title: "操作",
-      key: "actions",
-      width: 140,
-      render: (_: unknown, record: Puzzle) => (
-        <Space size="small">
-          <Button
-            size="small"
-            icon={<EditOutlined />}
-            onClick={() => {
-              setEditingPuzzle(record);
-              setShowForm(true);
-            }}
-          />
-          <Popconfirm
-            title="确定删除此题？"
-            onConfirm={() => handleDelete(record.id)}
-            okText="删除"
-            cancelText="取消"
-          >
-            <Button size="small" danger icon={<DeleteOutlined />} />
-          </Popconfirm>
-        </Space>
-      ),
-    },
+    ...(!readOnly
+      ? [
+          {
+            title: "涉及技巧",
+            dataIndex: "techniqueNames",
+            key: "techniqueNames",
+            render: (names?: string[]) =>
+              names && names.length > 0 ? (
+                <Space size={[2, 2]} wrap>
+                  {names.map((n) => (
+                    <Tag key={n}>{n}</Tag>
+                  ))}
+                </Space>
+              ) : (
+                <Text type="secondary">-</Text>
+              ),
+          },
+          {
+            title: "操作",
+            key: "actions",
+            width: 140,
+            render: (_: unknown, record: Puzzle) => (
+              <Space size="small">
+                <Button
+                  size="small"
+                  icon={<EditOutlined />}
+                  onClick={() => {
+                    setEditingPuzzle(record);
+                    setShowForm(true);
+                  }}
+                />
+                <Popconfirm
+                  title="确定删除此题？"
+                  onConfirm={() => handleDelete(record.id)}
+                  okText="删除"
+                  cancelText="取消"
+                >
+                  <Button size="small" danger icon={<DeleteOutlined />} />
+                </Popconfirm>
+              </Space>
+            ),
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -217,27 +274,29 @@ export function PuzzleTable() {
             }))}
           />
         </Space>
-        <Space size="small">
-          <Button
-            icon={<ImportOutlined />}
-            onClick={() => setShowImport(true)}
-          >
-            导入
-          </Button>
-          <Button icon={<TagsOutlined />} onClick={() => setShowTags(true)}>
-            标签
-          </Button>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => {
-              setEditingPuzzle(null);
-              setShowForm(true);
-            }}
-          >
-            新增
-          </Button>
-        </Space>
+        {!readOnly && (
+          <Space size="small">
+            <Button
+              icon={<ImportOutlined />}
+              onClick={() => setShowImport(true)}
+            >
+              导入
+            </Button>
+            <Button icon={<TagsOutlined />} onClick={() => setShowTags(true)}>
+              标签
+            </Button>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => {
+                setEditingPuzzle(null);
+                setShowForm(true);
+              }}
+            >
+              新增
+            </Button>
+          </Space>
+        )}
       </div>
 
       {/* 列表 */}

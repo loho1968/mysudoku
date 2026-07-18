@@ -51,6 +51,13 @@ function initTables(db: Database.Database): void {
       FOREIGN KEY (tag_id)     REFERENCES tags(id)    ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS puzzle_techniques (
+      puzzle_id TEXT NOT NULL,
+      technique TEXT NOT NULL,
+      PRIMARY KEY (puzzle_id, technique),
+      FOREIGN KEY (puzzle_id) REFERENCES puzzles(id) ON DELETE CASCADE
+    );
+
     CREATE TABLE IF NOT EXISTS game_records (
       id            TEXT PRIMARY KEY,
       puzzle_id     TEXT NOT NULL,
@@ -70,12 +77,13 @@ function initTables(db: Database.Database): void {
       _modified   INTEGER NOT NULL DEFAULT 1
     );
 
-    INSERT OR IGNORE INTO settings (key, value) VALUES ('edit_password', 'mysudoku');
+    INSERT OR IGNORE INTO settings (key, value) VALUES ('edit_password', 'Kili+2016');
 
     CREATE INDEX IF NOT EXISTS idx_puzzles_difficulty ON puzzles(difficulty);
     CREATE INDEX IF NOT EXISTS idx_puzzles__modified ON puzzles(_modified);
     CREATE INDEX IF NOT EXISTS idx_game_records_puzzle ON game_records(puzzle_id);
     CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name);
+    CREATE INDEX IF NOT EXISTS idx_puzzle_techniques_technique ON puzzle_techniques(technique);
   `);
 }
 

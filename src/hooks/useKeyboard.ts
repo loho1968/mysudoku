@@ -9,19 +9,25 @@
  * 功能：
  * - 数字键 1-9: 答题模式填入 / 笔记模式 toggle
  * - Backspace/Delete: 擦除选中格
+ * - F: 答题模式 / N: 笔记模式 / H: 笔记显示开关
+ * - E: 橡皮擦（擦除选中格）
+ * - C: 差错检查
+ * - Space: 开始/暂停计时 / R: 重置计时
  * - Escape: 退出粘滞模式 / 清除选择
- * - Ctrl+Z: 撤销
- * - Ctrl+Shift+Z / Ctrl+Y: 重做
+ * - Ctrl+Z: 撤销 / Ctrl+Shift+Z, Ctrl+Y: 重做
  *
  * handler 在 useEffect 内定义并绑定，state 作为依赖项确保每次渲染后
  * 监听器持有最新状态（React 19 禁止 render 时改 ref）。
  */
 
 import { useCallback, useEffect } from "react";
+import { App } from "antd";
 import { useGame } from "@/contexts/GameContext";
+import { hasErrors } from "@/lib/sudoku/validator";
 
 export function useKeyboard() {
   const { state, dispatch } = useGame();
+  const { message } = App.useApp();
   const handleUndo = useCallback(() => dispatch({ type: "UNDO" }), [dispatch]);
   const handleRedo = useCallback(() => dispatch({ type: "REDO" }), [dispatch]);
 
@@ -86,6 +92,60 @@ export function useKeyboard() {
         return;
       }
 
+      // 单字母快捷键（大小写不敏感，避开 Ctrl/Cmd 组合）
+      const key = event.key.toLowerCase();
+      if (!event.ctrlKey && !event.metaKey && !event.altKey) {
+        // F: 答题模式
+        if (key === "f") {
+          dispatch({ type: "SET_INPUT_MODE", mode: "answer" });
+          return;
+        }
+        // N: 笔记模式
+        if (key === "n") {
+          dispatch({ type: "SET_INPUT_MODE", mode: "note" });
+          return;
+        }
+        // H: 笔记显示开关
+        if (key === "h") {
+          dispatch({ type: "SET_SHOW_NOTES", show: !state.showNotes });
+          return;
+        }
+        // E: 橡皮擦（擦除选中格）
+        if (key === "e") {
+          if (state.selectedCells.length === 0) return;
+          for (const [r, c] of state.selectedCells) {
+            dispatch({ type: "SET_CELL_VALUE", row: r, col: c, value: null });
+          }
+          return;
+        }
+        // C: 差错检查
+        if (key === "c") {
+          const numberGrid = state.grid.map((row) =>
+            row.map((cell) => cell.value ?? 0)
+          );
+          const hasErr = hasErrors(numberGrid);
+          dispatch({ type: "CHECK_ERRORS" });
+          if (hasErr) {
+            message.warning("题目中存在错误");
+          } else {
+            message.success("没有发现错误");
+          }
+          return;
+        }
+        // R: 重置计时
+        if (key === "r") {
+          dispatch({ type: "RESET_TIMER" });
+          return;
+        }
+      }
+
+      // Space: 开始/暂停计时（单独处理，需 preventDefault 避免页面滚动）
+      if (event.code === "Space" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        event.preventDefault();
+        dispatch({ type: "TOGGLE_TIMER" });
+        return;
+      }
+
       // Ctrl+Z: 撤销
       if (
         (event.ctrlKey || event.metaKey) &&
@@ -110,5 +170,5 @@ export function useKeyboard() {
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [state, dispatch, handleUndo, handleRedo]);
+  }, [state, dispatch, handleUndo, handleRedo, message]);
 }

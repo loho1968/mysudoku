@@ -45,7 +45,11 @@ export async function GET(request: NextRequest) {
         WHERE pt.puzzle_id = ?
       `).all(p.id) as { id: string; name: string; color: string }[];
 
-      return { ...p, tags, _modified: undefined };
+      const techniqueNames = (db.prepare(`
+        SELECT technique FROM puzzle_techniques WHERE puzzle_id = ?
+      `).all(p.id) as { technique: string }[]).map(row => row.technique);
+
+      return { ...p, tags, techniqueNames, _modified: undefined };
     });
 
     return NextResponse.json({
@@ -64,7 +68,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { puzzle, solution, difficulty = 0, source = null, remark = null, tagIds = [] } = body;
+    const { puzzle, solution, difficulty = 0, source = null, remark = null, tagIds = [], techniqueNames = [] } = body;
 
     if (!puzzle || puzzle.length !== 81) {
       return NextResponse.json({ success: false, error: '题目格式不正确(需要81字符)' }, { status: 400 });
@@ -82,6 +86,13 @@ export async function POST(request: NextRequest) {
       const insertTag = db.prepare('INSERT OR IGNORE INTO puzzle_tags (puzzle_id, tag_id) VALUES (?, ?)');
       for (const tagId of tagIds) {
         insertTag.run(id, tagId);
+      }
+    }
+
+    if (techniqueNames.length > 0) {
+      const insertTech = db.prepare('INSERT OR IGNORE INTO puzzle_techniques (puzzle_id, technique) VALUES (?, ?)');
+      for (const tech of techniqueNames) {
+        insertTech.run(id, tech);
       }
     }
 

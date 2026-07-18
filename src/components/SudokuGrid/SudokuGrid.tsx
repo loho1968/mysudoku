@@ -22,32 +22,39 @@ import { useCellSelection } from "@/hooks/useCellSelection";
 import { Cell } from "./Cell";
 
 /** 格子大小上下限 */
-const MIN_CELL_SIZE = 28;
-const MAX_CELL_SIZE = 72;
+const MIN_CELL_SIZE = 40;
+const MAX_CELL_SIZE = 160;
+
+/** 页面外边距 */
+const PAGE_PADDING = 48;
 
 /**
  * 计算合适的格子大小。
- * 横向排除左右 padding + Card padding（估 96px），
- * 纵向排除 Header/Footer/Toolbar/Title/NumberPad 等固定高度（估 482px）。
+ * 左右布局下，棋盘可用宽度 = 视口宽度 - 右侧面板（≈5*cellSize，需要迭代收敛）- 页面边距；
+ * 可用高度 = 视口高度 - Header - 页面上下边距。
+ * 面板宽度随 cellSize 变化，故迭代几次收敛。
  * @returns 格子像素大小。
  */
 function calcCellSize(): number {
-  if (typeof window === "undefined") return 40;
+  if (typeof window === "undefined") return 64;
   const vw = window.innerWidth;
   const vh = window.innerHeight;
 
-  // 纵向估算：Header(64) + Footer(64) + padding上下(48) + Card上下(48)
-  //   + Title(60) + Toolbar(32) + 棋盘margin(32) + NumberPad(150) = 498
-  const fixedV = 498;
-  // 横向估算：左右 padding + Card padding
-  const fixedH = 96;
+  // 纵向估算：Header(64) + 页面上下 padding(48) + 棋盘外框(6)
+  const fixedV = 118;
+  // 列间距 + 页面左右 padding
+  const fixedH = PAGE_PADDING + 24;
 
-  const availW = vw - fixedH;
   const availH = vh - fixedV;
 
-  // 棋盘必须是正方形，取较小可用维度
-  const maxEdge = Math.min(availW, availH);
-  const cellSize = Math.floor(maxEdge / 9);
+  // 迭代收敛：面板宽度 = 5*cellSize + 32，min 320
+  let cellSize = Math.floor(availH / 9);
+  for (let i = 0; i < 4; i++) {
+    const panelW = Math.max(320, cellSize * 5 + 32);
+    const availW = vw - fixedH - panelW;
+    const maxEdge = Math.min(availW, availH);
+    cellSize = Math.floor(maxEdge / 9);
+  }
 
   return Math.max(MIN_CELL_SIZE, Math.min(MAX_CELL_SIZE, cellSize));
 }
@@ -64,6 +71,18 @@ export function SudokuGrid() {
   const { handleCellClick } = useCellSelection();
 
   const [cellSize, setCellSize] = useState(calcCellSize);
+
+  // 同步到 document root，让棋盘外的组件（数字键盘等）也能取到
+  useEffect(() => {
+    document.documentElement.style.setProperty(
+      "--cell-size",
+      `${cellSize}px`
+    );
+    document.documentElement.style.setProperty(
+      "--cell-font-size",
+      `${Math.round(cellSize * 0.58)}px`
+    );
+  }, [cellSize]);
 
   useEffect(() => {
     const handler = () => setCellSize(calcCellSize());

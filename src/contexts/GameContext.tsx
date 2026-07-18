@@ -18,7 +18,7 @@ import {
   useReducer,
   type ReactNode,
 } from "react";
-import type { GameState, GameAction, CellData } from "@/types/game";
+import type { GameState, GameAction, CellData, StepChange } from "@/types/game";
 import { hasErrors } from "@/lib/sudoku/validator";
 import { getCandidates } from "@/lib/sudoku/candidates";
 import { applySmartNotes } from "@/lib/sudoku/techniques";
@@ -160,22 +160,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       // 重复输入已有数字 → 擦除（用户习惯：再按一次同一数字 = 撤销）
       const effectiveValue = value === cell.value ? null : value;
 
-      const change = {
-        row,
-        col,
-        prevValue: cell.value,
-        prevNotes: [...cell.notes],
-        newValue: effectiveValue,
-        newNotes: [],
-      };
-
-      // 丢弃 currentStepIndex 之后的步骤（新分支）
-      const steps = state.steps.slice(0, state.currentStepIndex + 1);
-      steps.push({
-        type: effectiveValue === null ? "erase" : "fill",
-        changes: [change],
-      });
-
+      // 先把目标格的值/笔记改好
       newGrid[row][col] = {
         ...cell,
         value: effectiveValue,
@@ -183,9 +168,21 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         isError: false,
       };
 
-      // 自动更新受影响格的普通笔记（如果当前 noteType 非 smart）
+      // 答题后重新计算候选数：
+      // - none / normal：重算受影响格（同行/列/宫）的普通候选
+      // - smart：基于新盘面整体重跑区块消除（pointing/boxLine），
+      //   保证全局候选与最新盘面约束一致。
       const numGrid = toNumberGrid(newGrid);
-      if (state.noteType !== "smart") {
+      if (state.noteType === "smart") {
+        const smartNotes = applySmartNotes(numGrid);
+        for (let r = 0; r < 9; r++) {
+          for (let c = 0; c < 9; c++) {
+            if (newGrid[r][c].value === null) {
+              newGrid[r][c].notes = smartNotes[r][c];
+            }
+          }
+        }
+      } else {
         for (const [ar, ac] of getAffectedCells(row, col)) {
           if (newGrid[ar][ac].value !== null) {
             newGrid[ar][ac].notes = [];
@@ -197,6 +194,47 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         }
       }
 
+      // 生成完整变更记录：目标格 + 所有候选数发生变化的格子。
+      // 这样 UNDO/REDO 才能完整恢复连带被重算的候选数。
+      const changes: StepChange[] = [
+        {
+          row,
+          col,
+          prevValue: cell.value,
+          prevNotes: [...cell.notes],
+          newValue: effectiveValue,
+          newNotes: [],
+        },
+      ];
+      for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+          if (r === row && c === col) continue;
+          const before = state.grid[r][c];
+          const after = newGrid[r][c];
+          // value 或 notes 任一变化即记入（避免冗余）
+          if (
+            before.value !== after.value ||
+            before.notes.join(",") !== after.notes.join(",")
+          ) {
+            changes.push({
+              row: r,
+              col: c,
+              prevValue: before.value,
+              prevNotes: [...before.notes],
+              newValue: after.value,
+              newNotes: [...after.notes],
+            });
+          }
+        }
+      }
+
+      // 丢弃 currentStepIndex 之后的步骤（新分支）
+      const steps = state.steps.slice(0, state.currentStepIndex + 1);
+      steps.push({
+        type: effectiveValue === null ? "erase" : "fill",
+        changes,
+      });
+
       // 若填入数字后棋盘完整且无错误 → completed
       const allFilled = newGrid.every((r) =>
         r.every((c) => c.value !== null)
@@ -207,7 +245,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         grid: newGrid,
         steps,
         currentStepIndex: steps.length - 1,
-        smartNotesExpired: state.noteType === "smart" ? true : state.smartNotesExpired,
+        // smart 模式答题后候选已重算，不再标记过期
+        smartNotesExpired: false,
         isCompleted: allFilled,
         errorCheckResult: null,
       };
@@ -247,9 +286,14 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       // 智能笔记：在普通笔记基础上叠加技巧推理
       if (state.grid.length === 0) return state;
       const numGrid = toNumberGrid(state.grid);
-      const currentNotes = state.grid.map((row) =>
-        row.map((cell) => [...cell.notes])
+      // 判断当前是否已有有效笔记：若全空则传 undefined，让 applySmartNotes
+      // 内部用 getAllCandidates 初始化候选集（否则在空集上做消除无意义）
+      const hasAnyNotes = state.grid.some((row) =>
+        row.some((cell) => cell.notes.length > 0)
       );
+      const currentNotes = hasAnyNotes
+        ? state.grid.map((row) => row.map((cell) => [...cell.notes]))
+        : undefined;
       const smartNotes = applySmartNotes(numGrid, currentNotes);
       const newGrid = cloneGrid(state.grid);
       for (let r = 0; r < 9; r++) {
@@ -343,9 +387,13 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         };
       }
 
+      // 选中格跟随撤销的操作位置：changes[0] 是用户直接操作的目标格
+      const focusChange = undoStep.changes[0];
+
       return {
         ...state,
         grid: undoGrid,
+        selectedCells: [[focusChange.row, focusChange.col]],
         currentStepIndex: state.currentStepIndex - 1,
         isCompleted: false,
       };
@@ -366,9 +414,13 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         };
       }
 
+      // 选中格跟随重做的操作位置：changes[0] 是用户直接操作的目标格
+      const focusChange = redoStep.changes[0];
+
       return {
         ...state,
         grid: redoGrid,
+        selectedCells: [[focusChange.row, focusChange.col]],
         currentStepIndex: state.currentStepIndex + 1,
       };
     }
