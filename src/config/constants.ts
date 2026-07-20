@@ -15,6 +15,10 @@ export const SETTINGS_KEY = 'mysudoku_settings';
 export const LAST_PUZZLE_KEY = 'mysudoku_last_puzzle';
 /** 做过的题目 id 集合（JSON 数组），用于"已做过"判定与随机出题优先排除 */
 export const PLAYED_SET_KEY = 'mysudoku_played_puzzles';
+/** 同步用：远程服务器地址（localStorage 记忆） */
+export const SYNC_SERVER_KEY = 'mysudoku_sync_server';
+/** 同步用：远程服务器编辑密码（localStorage 记忆） */
+export const SYNC_PASSWORD_KEY = 'mysudoku_sync_password';
 
 export const DIFFICULTY_LABELS: Record<number, string> = {
   0: '未分类',

@@ -56,3 +56,4 @@ data/mysudoku.db
 
 # logs
 logs/
+.zcode/
