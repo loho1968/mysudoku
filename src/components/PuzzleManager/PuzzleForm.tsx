@@ -17,7 +17,7 @@ import {
 } from "antd";
 import { apiFetch } from "@/hooks/useEditMode";
 import { DIFFICULTY_LABELS, TECHNIQUE_LIST } from "@/config/constants";
-import type { Puzzle, Tag as TagType } from "@/types/sudoku";
+import type { Puzzle } from "@/types/sudoku";
 
 const { TextArea } = Input;
 
@@ -40,20 +40,8 @@ export function PuzzleForm({
   const { message } = App.useApp();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
-  const [tags, setTags] = useState<TagType[]>([]);
 
   const isEdit = !!puzzle;
-
-  // 弹窗打开时加载标签列表
-  useEffect(() => {
-    if (open) {
-      fetch("/api/tags")
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.success) setTags(data.data);
-        });
-    }
-  }, [open]);
 
   // 编辑模式回填
   useEffect(() => {
@@ -62,9 +50,7 @@ export function PuzzleForm({
         puzzle: puzzle.puzzle,
         solution: puzzle.solution || "",
         difficulty: puzzle.difficulty,
-        source: puzzle.source || "",
         remark: puzzle.remark || "",
-        tagIds: puzzle.tags.map((t) => t.id),
         techniqueNames: puzzle.techniqueNames || [],
       });
     } else if (open) {
@@ -81,9 +67,7 @@ export function PuzzleForm({
         puzzle: values.puzzle.replace(/\./g, "0"),
         solution: values.solution?.replace(/\./g, "0") || null,
         difficulty: values.difficulty ?? 0,
-        source: values.source || null,
         remark: values.remark || null,
-        tagIds: values.tagIds || [],
         techniqueNames: values.techniqueNames || [],
       };
 
@@ -152,37 +136,8 @@ export function PuzzleForm({
           />
         </Form.Item>
 
-        <Form.Item name="source" label="来源">
-          <Input placeholder="可选" />
-        </Form.Item>
-
         <Form.Item name="remark" label="备注">
           <TextArea rows={2} placeholder="可选" />
-        </Form.Item>
-
-        <Form.Item name="tagIds" label="标签">
-          <Select
-            mode="multiple"
-            placeholder="选择标签"
-            options={tags.map((t) => ({
-              value: t.id,
-              label: (
-                <span>
-                  <span
-                    style={{
-                      display: "inline-block",
-                      width: 8,
-                      height: 8,
-                      borderRadius: "50%",
-                      background: t.color,
-                      marginRight: 6,
-                    }}
-                  />
-                  {t.name}
-                </span>
-              ),
-            }))}
-          />
         </Form.Item>
 
         <Form.Item name="techniqueNames" label="涉及技巧">

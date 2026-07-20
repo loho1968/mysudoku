@@ -15,19 +15,13 @@ export async function GET(
       return NextResponse.json({ success: false, error: '题目不存在' }, { status: 404 });
     }
 
-    const tags = db.prepare(`
-      SELECT t.id, t.name, t.color FROM tags t
-      JOIN puzzle_tags pt ON t.id = pt.tag_id
-      WHERE pt.puzzle_id = ?
-    `).all(id);
-
     const techniqueNames = (db.prepare(`
       SELECT technique FROM puzzle_techniques WHERE puzzle_id = ?
     `).all(id) as { technique: string }[]).map(row => row.technique);
 
     return NextResponse.json({
       success: true,
-      data: { ...puzzle, tags, techniqueNames, _modified: undefined },
+      data: { ...puzzle, techniqueNames, _modified: undefined },
     });
   } catch (error) {
     return NextResponse.json({ success: false, error: '获取题目失败' }, { status: 500 });
@@ -45,23 +39,15 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { puzzle, solution, difficulty, source, remark, tagIds, techniqueNames } = body;
+    const { puzzle, solution, difficulty, remark, techniqueNames } = body;
 
     const db = getDb();
 
     if (puzzle) {
       db.prepare(`
-        UPDATE puzzles SET puzzle=?, solution=?, difficulty=?, source=?, remark=?,
+        UPDATE puzzles SET puzzle=?, solution=?, difficulty=?, remark=?,
         updated_at=datetime('now'), _modified=1 WHERE id=?
-      `).run(puzzle, solution || null, difficulty ?? 0, source || null, remark || null, id);
-    }
-
-    if (tagIds !== undefined) {
-      db.prepare('DELETE FROM puzzle_tags WHERE puzzle_id = ?').run(id);
-      const insertTag = db.prepare('INSERT OR IGNORE INTO puzzle_tags (puzzle_id, tag_id) VALUES (?, ?)');
-      for (const tagId of tagIds) {
-        insertTag.run(id, tagId);
-      }
+      `).run(puzzle, solution || null, difficulty ?? 0, remark || null, id);
     }
 
     if (techniqueNames !== undefined) {

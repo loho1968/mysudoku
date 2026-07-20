@@ -3,19 +3,11 @@ export interface Puzzle {
   puzzle: string;
   solution: string | null;
   difficulty: number;
-  source: string | null;
-  remark: string | null;
-  tags: Tag[];
   /** 涉及技巧名称列表（来自 puzzle_techniques 关联表） */
   techniqueNames?: string[];
+  remark: string | null;
   created_at: string;
   updated_at: string;
-}
-
-export interface Tag {
-  id: string;
-  name: string;
-  color: string;
 }
 
 export interface GameRecord {

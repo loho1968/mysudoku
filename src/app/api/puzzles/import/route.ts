@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { text, difficulty = 0, tagIds = [] } = body;
+    const { text, difficulty = 0 } = body;
 
     if (!text) {
       return NextResponse.json({ success: false, error: '缺少题目文本' }, { status: 400 });
@@ -26,16 +26,10 @@ export async function POST(request: NextRequest) {
     const insertPuzzle = db.prepare(
       'INSERT INTO puzzles (id, puzzle, difficulty) VALUES (?, ?, ?)'
     );
-    const insertTag = db.prepare(
-      'INSERT OR IGNORE INTO puzzle_tags (puzzle_id, tag_id) VALUES (?, ?)'
-    );
 
     for (const puzzle of puzzles) {
       const id = generateId();
       insertPuzzle.run(id, puzzle, difficulty);
-      for (const tagId of tagIds) {
-        insertTag.run(id, tagId);
-      }
       ids.push(id);
     }
 

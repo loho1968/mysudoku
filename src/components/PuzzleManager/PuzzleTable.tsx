@@ -28,16 +28,14 @@ import {
   EditOutlined,
   DeleteOutlined,
   ImportOutlined,
-  TagsOutlined,
   SearchOutlined,
   PlayCircleOutlined,
 } from "@ant-design/icons";
 import { apiFetch } from "@/hooks/useEditMode";
 import { DIFFICULTY_LABELS, PLAYED_SET_KEY } from "@/config/constants";
-import type { Puzzle, Tag as TagType } from "@/types/sudoku";
+import type { Puzzle } from "@/types/sudoku";
 import { PuzzleForm } from "./PuzzleForm";
 import { PuzzleImportModal } from "./PuzzleImportModal";
-import { TagManager } from "./TagManager";
 
 const { Text } = Typography;
 
@@ -80,7 +78,6 @@ export function PuzzleTable({ readOnly = false }: PuzzleTableProps) {
   const [editingPuzzle, setEditingPuzzle] = useState<Puzzle | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
-  const [showTags, setShowTags] = useState(false);
   const [playedSet, setPlayedSet] = useState<Set<string>>(getPlayedSet);
   // playedSet 在每次 fetchPuzzles 完成时刷新（localStorage 可能被其他标签页修改）
   const refreshPlayedSet = useCallback(() => {
@@ -165,23 +162,6 @@ export function PuzzleTable({ readOnly = false }: PuzzleTableProps) {
           {DIFFICULTY_LABELS[val] || "未知"}
         </Tag>
       ),
-    },
-    {
-      title: "标签",
-      dataIndex: "tags",
-      key: "tags",
-      render: (tags: TagType[]) =>
-        tags.length > 0 ? (
-          <Space size={[2, 2]} wrap>
-            {tags.map((t) => (
-              <Tag key={t.id} color={t.color}>
-                {t.name}
-              </Tag>
-            ))}
-          </Space>
-        ) : (
-          <Text type="secondary">-</Text>
-        ),
     },
     {
       title: "创建时间",
@@ -282,9 +262,6 @@ export function PuzzleTable({ readOnly = false }: PuzzleTableProps) {
             >
               导入
             </Button>
-            <Button icon={<TagsOutlined />} onClick={() => setShowTags(true)}>
-              标签
-            </Button>
             <Button
               type="primary"
               icon={<PlusOutlined />}
@@ -341,12 +318,6 @@ export function PuzzleTable({ readOnly = false }: PuzzleTableProps) {
           setShowImport(false);
           fetchPuzzles();
         }}
-      />
-
-      {/* 标签管理 */}
-      <TagManager
-        open={showTags}
-        onClose={() => setShowTags(false)}
       />
     </div>
   );

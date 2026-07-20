@@ -39,23 +39,15 @@ export async function GET(request: NextRequest) {
 
     const db = getDb();
 
-    /** 带 tags + techniqueNames 的 Query 结果包装 */
+    /** 带 techniqueNames 的查询结果包装。 */
     function attachMeta(row: Record<string, unknown>) {
-      const tags = db
-        .prepare(
-          `SELECT t.id, t.name, t.color FROM tags t
-           JOIN puzzle_tags pt ON t.id = pt.tag_id
-           WHERE pt.puzzle_id = ?`
-        )
-        .all(row.id) as { id: string; name: string; color: string }[];
-
       const techniqueNames = (
         db
           .prepare("SELECT technique FROM puzzle_techniques WHERE puzzle_id = ?")
           .all(row.id) as { technique: string }[]
       ).map((r) => r.technique);
 
-      return { ...row, tags, techniqueNames, _modified: undefined };
+      return { ...row, techniqueNames, _modified: undefined };
     }
 
     /**

@@ -27,28 +27,10 @@ function initTables(db: Database.Database): void {
       puzzle      TEXT NOT NULL,
       solution    TEXT,
       difficulty  INTEGER DEFAULT 0,
-      source      TEXT,
       remark      TEXT,
       created_at  TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
       _modified   INTEGER NOT NULL DEFAULT 1
-    );
-
-    CREATE TABLE IF NOT EXISTS tags (
-      id          TEXT PRIMARY KEY,
-      name        TEXT NOT NULL UNIQUE,
-      color       TEXT DEFAULT '#1890ff',
-      created_at  TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
-      _modified   INTEGER NOT NULL DEFAULT 1
-    );
-
-    CREATE TABLE IF NOT EXISTS puzzle_tags (
-      puzzle_id TEXT NOT NULL,
-      tag_id    TEXT NOT NULL,
-      PRIMARY KEY (puzzle_id, tag_id),
-      FOREIGN KEY (puzzle_id) REFERENCES puzzles(id) ON DELETE CASCADE,
-      FOREIGN KEY (tag_id)     REFERENCES tags(id)    ON DELETE CASCADE
     );
 
     CREATE TABLE IF NOT EXISTS puzzle_techniques (
@@ -82,7 +64,6 @@ function initTables(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_puzzles_difficulty ON puzzles(difficulty);
     CREATE INDEX IF NOT EXISTS idx_puzzles__modified ON puzzles(_modified);
     CREATE INDEX IF NOT EXISTS idx_game_records_puzzle ON game_records(puzzle_id);
-    CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name);
     CREATE INDEX IF NOT EXISTS idx_puzzle_techniques_technique ON puzzle_techniques(technique);
   `);
 }
