@@ -14,7 +14,8 @@
  * 此页面不再加载硬编码缺省题目。
  */
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Typography, Card, Spin, App, Modal, Input, Select, Button, Space,
 } from "antd";
@@ -412,15 +413,16 @@ function GameContent({
 // ─── Page ─────────────────────────────────────────────────────────
 
 /**
- * 游戏首页。
+ * 游戏首页（内层，在 Suspense 中以支持 useSearchParams 响应式 URL）。
  *
- * 逻辑顺序（仅在客户端首次渲染时执行）：
+ * 逻辑顺序：
  * 1. 有存档 + 有最后题目记录 → 自动加载并恢复
  * 2. URL 含 ?picked=难度 → 随机出题后加载
- * 3. URL 含 ?puzzleId=xxx → 加载指定题目
+ * 3. URL 含 ?puzzleId=xxx → 加载指定题目（含技巧名）
  * 4. 均无 → 显示难度选择引导
  */
-export default function GamePage() {
+function GamePageInner() {
+  const searchParams = useSearchParams();
   const [puzzleData, setPuzzleData] = useState<PuzzleData | null | "loading">(
     "loading"
   );
@@ -442,39 +444,27 @@ export default function GamePage() {
     }
 
     // ── URL 携带 ?picked=难度（从导航栏"选择题目"跳来） ──
-    const params = new URLSearchParams(window.location.search);
-    const picked = params.get("picked");
+    const picked = searchParams.get("picked");
     if (picked) {
       const diff = parseInt(picked, 10);
       if (!isNaN(diff) && diff >= 1 && diff <= 3) {
-        // 异步获取后再设置
         (async () => {
           const data = await fetchRandomPuzzle(diff);
-          if (data) {
-            setPuzzleData(data);
-          } else {
-            setPuzzleData(null);
-          }
+          setPuzzleData(data || null);
         })();
         return;
       }
     }
 
     // ── URL 携带 ?puzzleId=xxx（从技巧选择跳来） ──
-    const puzzleId = params.get("puzzleId");
+    const puzzleId = searchParams.get("puzzleId");
     if (puzzleId) {
-      // 记录技巧名（用于工具栏显示）
-      const tech = params.get("technique");
-      setCurrentTechnique(tech || null);
+      setCurrentTechnique(searchParams.get("technique") || null);
       (async () => {
         try {
           const res = await fetch(`/api/puzzles/${puzzleId}`);
           const json = await res.json();
-          if (json.success) {
-            setPuzzleData(json.data);
-          } else {
-            setPuzzleData(null);
-          }
+          setPuzzleData(json.success ? json.data : null);
         } catch {
           setPuzzleData(null);
         }
@@ -484,7 +474,7 @@ export default function GamePage() {
 
     // ── 无存档、无参数 → 显示引导界面 ──
     setPuzzleData(null);
-  }, []);
+  }, [searchParams]);
 
   if (puzzleData === "loading") {
     return (
@@ -508,5 +498,28 @@ export default function GamePage() {
     <GameProvider>
       <GameContent puzzle={puzzleData} currentTechnique={currentTechnique} />
     </GameProvider>
+  );
+}
+
+/**
+ * 游戏首页出口（Suspense 包装，支持 useSearchParams）。
+ */
+export default function GamePage() {
+  return (
+    <Suspense
+      fallback={
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            paddingTop: 120,
+          }}
+        >
+          <Spin size="large" />
+        </div>
+      }
+    >
+      <GamePageInner />
+    </Suspense>
   );
 }

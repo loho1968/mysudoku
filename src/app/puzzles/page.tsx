@@ -36,6 +36,13 @@ export default function PuzzlesPage() {
     verifyPassword,
   } = useEditMode();
 
+  // 标记客户端是否已完成 hydration（避免 SSR 与服务端 sessionStorage 状态不一致的闪烁）
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setHydrated(true);
+  }, []);
+
   // 客户端挂载后才可知是否本地环境（避免 SSR 闪烁）
   const [isLocal, setIsLocal] = useState(false);
   useEffect(() => {
@@ -77,11 +84,13 @@ export default function PuzzlesPage() {
               题目管理
             </Title>
             <Text type="secondary">
-              {isLocal
-                ? "本地维护模式"
-                : isEditMode
-                  ? "维护模式"
-                  : "浏览模式"}
+              {!hydrated
+                ? "维护模式"
+                : isLocal
+                  ? "本地维护模式"
+                  : isEditMode
+                    ? "维护模式"
+                    : "浏览模式"}
             </Text>
           </div>
           {/* 本地环境不需要切换按钮（已自动维护）；服务器环境显示密码切换 */}
