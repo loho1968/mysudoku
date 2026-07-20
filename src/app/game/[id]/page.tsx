@@ -75,44 +75,14 @@ function GameContent({ puzzle }: { puzzle: PuzzleData }) {
   }, [state.isCompleted, state.puzzleId]);
 
   return (
-    <div
-      style={{
-        padding: 24,
-        width: "100%",
-        maxWidth: "min(90vw, 700px)",
-        margin: "0 auto",
-        height: "100%",
-      }}
-    >
-      <Card
-        styles={{
-          body: {
-            display: "flex",
-            flexDirection: "column",
-            height: "100%",
-            alignItems: "center",
-          },
-        }}
-      >
-        <Title level={3} style={{ textAlign: "center", marginBottom: 8 }}>
-          数独
-        </Title>
+    <div className="game-layout">
+      <div className="game-layout-board">
+        <SudokuGrid />
+      </div>
+      <aside className="game-layout-panel">
         <GameToolBar onSubmitSuccess={handleSubmitSuccess} />
-        <div
-          style={{
-            flex: 1,
-            minHeight: 0,
-            width: "100%",
-            margin: "8px 0",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <SudokuGrid />
-        </div>
         <NumberPad />
-      </Card>
+      </aside>
     </div>
   );
 }
