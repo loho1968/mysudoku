@@ -408,7 +408,8 @@ function GameContent({ puzzle }: { puzzle: PuzzleData }) {
  * 逻辑顺序（仅在客户端首次渲染时执行）：
  * 1. 有存档 + 有最后题目记录 → 自动加载并恢复
  * 2. URL 含 ?picked=难度 → 随机出题后加载
- * 3. 均无 → 显示难度选择引导
+ * 3. URL 含 ?puzzleId=xxx → 加载指定题目
+ * 4. 均无 → 显示难度选择引导
  */
 export default function GamePage() {
   const [puzzleData, setPuzzleData] = useState<PuzzleData | null | "loading">(
@@ -447,6 +448,25 @@ export default function GamePage() {
         })();
         return;
       }
+    }
+
+    // ── URL 携带 ?puzzleId=xxx（从技巧选择跳来） ──
+    const puzzleId = params.get("puzzleId");
+    if (puzzleId) {
+      (async () => {
+        try {
+          const res = await fetch(`/api/puzzles/${puzzleId}`);
+          const json = await res.json();
+          if (json.success) {
+            setPuzzleData(json.data);
+          } else {
+            setPuzzleData(null);
+          }
+        } catch {
+          setPuzzleData(null);
+        }
+      })();
+      return;
     }
 
     // ── 无存档、无参数 → 显示引导界面 ──
