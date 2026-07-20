@@ -15,14 +15,19 @@
  */
 
 import { useEffect, useState, useCallback } from "react";
-import { Typography, Card, Spin, App } from "antd";
-import { PlayCircleOutlined } from "@ant-design/icons";
+import {
+  Typography, Card, Spin, App, Modal, Input, Select, Button, Space,
+} from "antd";
+import { PlayCircleOutlined, SnippetsOutlined, SaveOutlined } from "@ant-design/icons";
 import { GameProvider, useGame } from "@/contexts/GameContext";
 import { SudokuGrid } from "@/components/SudokuGrid/SudokuGrid";
 import { NumberPad } from "@/components/Controls/NumberPad";
 import { GameToolBar } from "@/components/Controls/GameToolBar";
 import { useKeyboard, type SubmitSuccessHandler } from "@/hooks/useKeyboard";
+import { useEditMode, apiFetch } from "@/hooks/useEditMode";
+import { EditModeModal } from "@/components/Auth/EditModeModal";
 import { submitPuzzleRecord, formatElapsed } from "@/lib/gameRecord";
+import { v4 as generateId } from "uuid";
 import {
   useLocalProgress,
   getSavedProgress,
@@ -30,7 +35,7 @@ import {
   saveLastPuzzle,
   markPlayed,
 } from "@/hooks/useLocalProgress";
-import { DIFFICULTY_OPTIONS, PLAYED_SET_KEY } from "@/config/constants";
+import { DIFFICULTY_LABELS, DIFFICULTY_OPTIONS, TECHNIQUE_LIST, PLAYED_SET_KEY } from "@/config/constants";
 
 const { Title, Text } = Typography;
 
@@ -149,7 +154,25 @@ function DifficultyPicker({
 function GameContent({ puzzle }: { puzzle: PuzzleData }) {
   const { state, dispatch } = useGame();
   const { restore } = useLocalProgress();
-  const { modal } = App.useApp();
+  const { modal, message } = App.useApp();
+  const {
+    isEditMode,
+    showPasswordModal,
+    setShowPasswordModal,
+    verifyPassword,
+  } = useEditMode();
+
+  // 粘贴相关状态
+  const [isPasted, setIsPasted] = useState(false);
+  const [puzzleSaved, setPuzzleSaved] = useState(false);
+  const [pastedPuzzleStr, setPastedPuzzleStr] = useState<string>("");
+
+  // 保存弹窗状态
+  const [showSaveForm, setShowSaveForm] = useState(false);
+  const [saveDifficulty, setSaveDifficulty] = useState<number>(1);
+  const [saveRemark, setSaveRemark] = useState("");
+  const [saveTechniques, setSaveTechniques] = useState<string[]>([]);
+  const [saveLoading, setSaveLoading] = useState(false);
 
   // 提交成功：写记录 + 弹庆祝提示
   const handleSubmitSuccess = useCallback<SubmitSuccessHandler>(
@@ -165,6 +188,91 @@ function GameContent({ puzzle }: { puzzle: PuzzleData }) {
   );
 
   useKeyboard(handleSubmitSuccess);
+
+  // 粘贴处理
+  const handlePaste = useCallback(async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      const cleaned = text.replace(/\s/g, "");
+      if (!/^[0-9.]{81}$/.test(cleaned)) {
+        message.warning("剪贴板内容不是有效的数独题目（需要 81 个字符，0-9 或 .）");
+        return;
+      }
+      const normalized = cleaned.replace(/\./g, "0");
+      // 避免重复粘贴同一题
+      if (normalized === pastedPuzzleStr) {
+        message.info("已载入此题目");
+        return;
+      }
+      const newId = generateId();
+      // 通过 dispatch 直接加载新题（不改变父级 puzzleData，避免 GameContent 重挂载）
+      dispatch({
+        type: "LOAD_PUZZLE",
+        puzzleId: newId,
+        puzzle: normalized,
+      });
+      setPastedPuzzleStr(normalized);
+      setIsPasted(true);
+      setPuzzleSaved(false);
+      message.success("已从剪贴板加载题目");
+    } catch (err) {
+      message.error(
+        `读取剪贴板失败：${err instanceof Error ? err.message : "未知错误"}`
+      );
+    }
+  }, [dispatch, pastedPuzzleStr, message]);
+
+  // 保存按钮点击
+  const handleSaveClick = useCallback(() => {
+    if (!isEditMode) {
+      setShowPasswordModal(true);
+    } else {
+      setShowSaveForm(true);
+    }
+  }, [isEditMode, setShowPasswordModal]);
+
+  // 密码验证成功后的回调
+  const handlePasswordSuccess = useCallback(
+    async (password: string) => {
+      sessionStorage.setItem("edit_password", password);
+      const ok = await verifyPassword(password);
+      if (ok) {
+        setShowSaveForm(true);
+      }
+    },
+    [verifyPassword]
+  );
+
+  // 执行保存
+  const handleSaveSubmit = useCallback(async () => {
+    if (!pastedPuzzleStr) return;
+    setSaveLoading(true);
+    try {
+      const res = await apiFetch("/api/puzzles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          puzzle: pastedPuzzleStr,
+          solution: null,
+          difficulty: saveDifficulty,
+          remark: saveRemark || null,
+          techniqueNames: saveTechniques,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        message.success("题目已保存到题库");
+        setPuzzleSaved(true);
+        setShowSaveForm(false);
+      } else {
+        message.error(data.error || "保存失败");
+      }
+    } catch {
+      message.error("保存失败");
+    } finally {
+      setSaveLoading(false);
+    }
+  }, [pastedPuzzleStr, saveDifficulty, saveRemark, saveTechniques, message]);
 
   // LOAD_PUZZLE
   useEffect(() => {
@@ -195,9 +303,99 @@ function GameContent({ puzzle }: { puzzle: PuzzleData }) {
         <SudokuGrid />
       </div>
       <aside className="game-layout-panel">
+        {/* 顶部工具条：粘贴 + 保存 */}
+        <div className="game-panel-tools">
+          <Space.Compact block>
+            <Button
+              icon={<SnippetsOutlined />}
+              onClick={handlePaste}
+              block
+            >
+              粘贴
+            </Button>
+            {isPasted && !puzzleSaved && (
+              <Button
+                icon={<SaveOutlined />}
+                onClick={handleSaveClick}
+                block
+              >
+                保存题目
+              </Button>
+            )}
+          </Space.Compact>
+        </div>
+
         <GameToolBar onSubmitSuccess={handleSubmitSuccess} />
         <NumberPad />
       </aside>
+
+      {/* 密码弹窗 */}
+      {isPasted && !puzzleSaved && (
+        <EditModeModal
+          open={showPasswordModal}
+          onClose={() => setShowPasswordModal(false)}
+          onSuccess={handlePasswordSuccess}
+        />
+      )}
+
+      {/* 保存信息填写弹窗 */}
+      <Modal
+        title="保存题目到题库"
+        open={showSaveForm}
+        onCancel={() => setShowSaveForm(false)}
+        onOk={handleSaveSubmit}
+        confirmLoading={saveLoading}
+        okText="保存"
+        width={480}
+      >
+        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+          <div>
+            <Text type="secondary">题目（81 字符）</Text>
+            <Input.TextArea
+              value={pastedPuzzleStr}
+              disabled
+              rows={3}
+              style={{ fontFamily: "monospace", fontSize: 12, marginTop: 4 }}
+            />
+          </div>
+          <div>
+            <Text type="secondary">难度</Text>
+            <Select
+              value={saveDifficulty}
+              onChange={setSaveDifficulty}
+              style={{ width: "100%", marginTop: 4 }}
+              options={Object.entries(DIFFICULTY_LABELS).map(([k, v]) => ({
+                value: parseInt(k),
+                label: v,
+              }))}
+            />
+          </div>
+          <div>
+            <Text type="secondary">备注（可选）</Text>
+            <Input.TextArea
+              value={saveRemark}
+              onChange={(e) => setSaveRemark(e.target.value)}
+              rows={2}
+              placeholder="备注..."
+              style={{ marginTop: 4 }}
+            />
+          </div>
+          <div>
+            <Text type="secondary">涉及技巧（可选）</Text>
+            <Select
+              mode="multiple"
+              value={saveTechniques}
+              onChange={setSaveTechniques}
+              style={{ width: "100%", marginTop: 4 }}
+              placeholder="选择涉及技巧"
+              options={TECHNIQUE_LIST.map((t) => ({
+                value: t,
+                label: t,
+              }))}
+            />
+          </div>
+        </Space>
+      </Modal>
     </div>
   );
 }
