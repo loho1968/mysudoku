@@ -46,8 +46,10 @@ export interface GameState {
   chains: ChainLink[];
   timerRunning: boolean;
   elapsedSeconds: number;
+  /** 本题是否已提交成功（提交时填满且无错）。true 时棋盘锁定。 */
   isCompleted: boolean;
-  errorCheckResult: boolean | null;
+  /** 本题是否已成功提交过。true 时禁止再次提交/编辑/撤销。 */
+  isSubmitted: boolean;
 }
 
 export type GameAction =
@@ -65,7 +67,7 @@ export type GameAction =
   | { type: 'SET_SHOW_NOTES'; show: boolean }
   | { type: 'AUTO_NOTES' }
   | { type: 'SMART_NOTES' }
-  | { type: 'CHECK_ERRORS' }
+  | { type: 'SUBMIT_PUZZLE' }
   | { type: 'ADD_CHAIN_LINK'; link: ChainLink }
   | { type: 'REMOVE_CHAIN_LINK'; id: string }
   | { type: 'CLEAR_CHAINS' }

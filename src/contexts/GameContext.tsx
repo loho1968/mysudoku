@@ -41,7 +41,7 @@ const initialState: GameState = {
   timerRunning: false,
   elapsedSeconds: 0,
   isCompleted: false,
-  errorCheckResult: null,
+  isSubmitted: false,
 };
 
 // ---- 辅助函数 ----
@@ -151,6 +151,9 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       return { ...state, selectedCells: [] };
 
     case "SET_CELL_VALUE": {
+      // 已提交成功 → 棋盘锁定，禁止编辑
+      if (state.isSubmitted) return state;
+
       const { row, col, value } = action;
       const newGrid = cloneGrid(state.grid);
       const cell = newGrid[row]?.[col];
@@ -235,11 +238,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         changes,
       });
 
-      // 若填入数字后棋盘完整且无错误 → completed
-      const allFilled = newGrid.every((r) =>
-        r.every((c) => c.value !== null)
-      );
-
+      // 注意：填满棋盘 ≠ 完成。完成需用户提交且无错（SUBMIT_PUZZLE）。
       const result: GameState = {
         ...state,
         grid: newGrid,
@@ -247,16 +246,33 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         currentStepIndex: steps.length - 1,
         // smart 模式答题后候选已重算，不再标记过期
         smartNotesExpired: false,
-        isCompleted: allFilled,
-        errorCheckResult: null,
+        // 答题后清除旧的完成态（用户重新编辑视为放弃上次的提交成果）
+        isCompleted: false,
+        isSubmitted: false,
       };
       return result;
     }
 
-    case "CHECK_ERRORS": {
+    case "SUBMIT_PUZZLE": {
+      // 已提交 → 不再处理
+      if (state.isSubmitted) return state;
+
+      // 必须填满 + 无错才算完成
+      const allFilled = state.grid.every((row) =>
+        row.every((cell) => cell.value !== null)
+      );
+      if (!allFilled) return state;
+
       const numberGrid = toNumberGrid(state.grid);
-      const hasErr = hasErrors(numberGrid);
-      return { ...state, errorCheckResult: hasErr ? true : false };
+      if (hasErrors(numberGrid)) return state;
+
+      // 提交成功：标记完成 + 锁定棋盘 + 停止计时器
+      return {
+        ...state,
+        isCompleted: true,
+        isSubmitted: true,
+        timerRunning: false,
+      };
     }
 
     case "AUTO_NOTES": {
@@ -337,6 +353,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       return { ...action.state };
 
     case "TOGGLE_NOTE": {
+      // 已提交 → 禁止笔记操作
+      if (state.isSubmitted) return state;
       const { row, col, note } = action;
       const oldCell = state.grid[row]?.[col];
       if (!oldCell || oldCell.isGiven || oldCell.value !== null) return state;
@@ -373,6 +391,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case "UNDO": {
+      // 已提交 → 禁止撤销（防止解锁棋盘）
+      if (state.isSubmitted) return state;
       if (state.currentStepIndex < 0) return state;
       const undoStep = state.steps[state.currentStepIndex];
       const undoGrid = cloneGrid(state.grid);
@@ -400,6 +420,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case "REDO": {
+      // 已提交 → 禁止重做
+      if (state.isSubmitted) return state;
       if (state.currentStepIndex >= state.steps.length - 1) return state;
       const redoStep = state.steps[state.currentStepIndex + 1];
       const redoGrid = cloneGrid(state.grid);

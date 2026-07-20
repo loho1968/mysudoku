@@ -37,7 +37,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { key: "F", desc: "切换到答题模式 (Fill)" },
       { key: "N", desc: "切换到笔记模式 (Note)" },
       { key: "H", desc: "笔记显示开关 (sHow notes)" },
-      { key: "C", desc: "差错检查 (Check)" },
+      { key: "C", desc: "提交 (Submit)" },
     ],
   },
   {

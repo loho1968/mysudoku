@@ -20,14 +20,23 @@
  * 监听器持有最新状态（React 19 禁止 render 时改 ref）。
  */
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { App } from "antd";
 import { useGame } from "@/contexts/GameContext";
 import { hasErrors } from "@/lib/sudoku/validator";
 
-export function useKeyboard() {
+/** 提交成功回调签名：参数为题目 ID 与用时（秒）。 */
+export type SubmitSuccessHandler = (puzzleId: string, elapsedSeconds: number) => void;
+
+export function useKeyboard(onSubmitSuccess?: SubmitSuccessHandler) {
   const { state, dispatch } = useGame();
   const { message } = App.useApp();
+  // 用 ref 保存最新的 onSubmitSuccess，避免 stale closure 触发 effect 重新绑定
+  const onSubmitSuccessRef = useRef<SubmitSuccessHandler | undefined>(onSubmitSuccess);
+  useEffect(() => {
+    onSubmitSuccessRef.current = onSubmitSuccess;
+  });
+
   const handleUndo = useCallback(() => dispatch({ type: "UNDO" }), [dispatch]);
   const handleRedo = useCallback(() => dispatch({ type: "REDO" }), [dispatch]);
 
@@ -118,18 +127,29 @@ export function useKeyboard() {
           }
           return;
         }
-        // C: 差错检查
+        // C: 提交（与工具栏提交按钮一致；触发 onSubmitSuccess 回调）
         if (key === "c") {
+          if (state.isSubmitted) {
+            message.info("本题已完成");
+            return;
+          }
+          const allFilled = state.grid.every((row) =>
+            row.every((cell) => cell.value !== null)
+          );
+          if (!allFilled) {
+            message.warning("棋盘未填满，无法提交");
+            return;
+          }
           const numberGrid = state.grid.map((row) =>
             row.map((cell) => cell.value ?? 0)
           );
-          const hasErr = hasErrors(numberGrid);
-          dispatch({ type: "CHECK_ERRORS" });
-          if (hasErr) {
-            message.warning("题目中存在错误");
-          } else {
-            message.success("没有发现错误");
+          if (hasErrors(numberGrid)) {
+            dispatch({ type: "SUBMIT_PUZZLE" });
+            message.error("题目存在错误，提交失败");
+            return;
           }
+          dispatch({ type: "SUBMIT_PUZZLE" });
+          onSubmitSuccessRef.current?.(state.puzzleId!, state.elapsedSeconds);
           return;
         }
         // R: 重置计时

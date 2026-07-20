@@ -64,8 +64,9 @@ function toGameState(progress: LocalProgress): GameState {
     chains: progress.chains,
     timerRunning: progress.timerRunning,
     elapsedSeconds: progress.elapsedSeconds,
+    // 进度恢复时强制重置提交/完成状态：用户需重新提交才视为完成
     isCompleted: false,
-    errorCheckResult: null,
+    isSubmitted: false,
   };
 }
 

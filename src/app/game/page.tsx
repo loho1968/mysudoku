@@ -14,14 +14,15 @@
  * 此页面不再加载硬编码缺省题目。
  */
 
-import { useEffect, useState } from "react";
-import { Typography, Card, Spin } from "antd";
+import { useEffect, useState, useCallback } from "react";
+import { Typography, Card, Spin, App } from "antd";
 import { PlayCircleOutlined } from "@ant-design/icons";
 import { GameProvider, useGame } from "@/contexts/GameContext";
 import { SudokuGrid } from "@/components/SudokuGrid/SudokuGrid";
 import { NumberPad } from "@/components/Controls/NumberPad";
 import { GameToolBar } from "@/components/Controls/GameToolBar";
-import { useKeyboard } from "@/hooks/useKeyboard";
+import { useKeyboard, type SubmitSuccessHandler } from "@/hooks/useKeyboard";
+import { submitPuzzleRecord, formatElapsed } from "@/lib/gameRecord";
 import {
   useLocalProgress,
   getSavedProgress,
@@ -148,7 +149,22 @@ function DifficultyPicker({
 function GameContent({ puzzle }: { puzzle: PuzzleData }) {
   const { state, dispatch } = useGame();
   const { restore } = useLocalProgress();
-  useKeyboard();
+  const { modal } = App.useApp();
+
+  // 提交成功：写记录 + 弹庆祝提示
+  const handleSubmitSuccess = useCallback<SubmitSuccessHandler>(
+    async (puzzleId, elapsedSeconds) => {
+      await submitPuzzleRecord(puzzleId, elapsedSeconds);
+      modal.success({
+        title: "恭喜完成！",
+        content: `用时 ${formatElapsed(elapsedSeconds)}`,
+        okText: "好的",
+      });
+    },
+    [modal]
+  );
+
+  useKeyboard(handleSubmitSuccess);
 
   // LOAD_PUZZLE
   useEffect(() => {
@@ -166,7 +182,7 @@ function GameContent({ puzzle }: { puzzle: PuzzleData }) {
     if (state.puzzleId) restore();
   }, [state.puzzleId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 完成时标记已做过
+  // 完成时标记已做过（兼容键盘提交等路径）
   useEffect(() => {
     if (state.isCompleted && state.puzzleId) {
       markPlayed(state.puzzleId);
@@ -179,7 +195,7 @@ function GameContent({ puzzle }: { puzzle: PuzzleData }) {
         <SudokuGrid />
       </div>
       <aside className="game-layout-panel">
-        <GameToolBar />
+        <GameToolBar onSubmitSuccess={handleSubmitSuccess} />
         <NumberPad />
       </aside>
     </div>

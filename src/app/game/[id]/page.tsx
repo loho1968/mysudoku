@@ -9,14 +9,15 @@
  */
 
 import { useParams } from "next/navigation";
-import { Card, Spin, Typography, Button } from "antd";
+import { Card, Spin, Typography, Button, App } from "antd";
 import { useEffect, useState, useCallback } from "react";
 import { GameProvider, useGame } from "@/contexts/GameContext";
 import { SudokuGrid } from "@/components/SudokuGrid/SudokuGrid";
 import { NumberPad } from "@/components/Controls/NumberPad";
 import { GameToolBar } from "@/components/Controls/GameToolBar";
-import { useKeyboard } from "@/hooks/useKeyboard";
+import { useKeyboard, type SubmitSuccessHandler } from "@/hooks/useKeyboard";
 import { useLocalProgress, markPlayed, saveLastPuzzle } from "@/hooks/useLocalProgress";
+import { submitPuzzleRecord, formatElapsed } from "@/lib/gameRecord";
 import type { GameAction } from "@/types/game";
 
 const { Title } = Typography;
@@ -34,8 +35,22 @@ interface PuzzleData {
 function GameContent({ puzzle }: { puzzle: PuzzleData }) {
   const { state, dispatch } = useGame();
   const { restore } = useLocalProgress();
+  const { modal } = App.useApp();
 
-  useKeyboard();
+  // 提交成功：写记录 + 弹庆祝提示
+  const handleSubmitSuccess = useCallback<SubmitSuccessHandler>(
+    async (puzzleId, elapsedSeconds) => {
+      await submitPuzzleRecord(puzzleId, elapsedSeconds);
+      modal.success({
+        title: "恭喜完成！",
+        content: `用时 ${formatElapsed(elapsedSeconds)}`,
+        okText: "好的",
+      });
+    },
+    [modal]
+  );
+
+  useKeyboard(handleSubmitSuccess);
 
   useEffect(() => {
     dispatch({
@@ -82,7 +97,7 @@ function GameContent({ puzzle }: { puzzle: PuzzleData }) {
         <Title level={3} style={{ textAlign: "center", marginBottom: 8 }}>
           数独
         </Title>
-        <GameToolBar />
+        <GameToolBar onSubmitSuccess={handleSubmitSuccess} />
         <div
           style={{
             flex: 1,
