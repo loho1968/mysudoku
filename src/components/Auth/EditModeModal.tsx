@@ -11,7 +11,6 @@
 import { useState } from "react";
 import { Modal, Input, Button, Typography, App, Space } from "antd";
 import { LockOutlined } from "@ant-design/icons";
-import { DEFAULT_EDIT_PASSWORD } from "@/config/constants";
 
 const { Text } = Typography;
 
@@ -73,7 +72,7 @@ export function EditModeModal({
         <Text type="secondary">输入编辑密码以管理题目和标签。</Text>
         <Input.Password
           prefix={<LockOutlined />}
-          placeholder={`默认密码: ${DEFAULT_EDIT_PASSWORD}`}
+          placeholder="输入编辑密码"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           onPressEnter={handleSubmit}

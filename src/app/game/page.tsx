@@ -348,7 +348,7 @@ function GameContent({ puzzle }: { puzzle: PuzzleData }) {
         okText="保存"
         width={480}
       >
-        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+        <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
           <div>
             <Text type="secondary">题目（81 字符）</Text>
             <Input.TextArea
