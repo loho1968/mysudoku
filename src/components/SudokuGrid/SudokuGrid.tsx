@@ -109,19 +109,29 @@ export function SudokuGrid() {
   return (
     <div className="sudoku-grid" style={gridStyle}>
       {state.grid.map((row, r) =>
-        row.map((cell, c) => (
-          <Cell
-            key={`${r}-${c}`}
-            row={r}
-            col={c}
-            data={cell}
-            isRowColHighlighted={rowColSet.has(`${r}-${c}`)}
-            isSameNumberHighlighted={sameNumberSet.has(`${r}-${c}`)}
-            isSelected={selectedSet.has(`${r}-${c}`)}
-            showNotes={state.showNotes}
-            onClick={handleCellClick}
-          />
-        ))
+        row.map((cell, c) => {
+          // 选中格的数字（若有），用于候选数同数字高亮
+          const firstSelected = state.selectedCells[0];
+          const sameCandidateValue =
+            firstSelected
+              ? state.grid[firstSelected[0]]?.[firstSelected[1]]?.value ?? null
+              : null;
+
+          return (
+            <Cell
+              key={`${r}-${c}`}
+              row={r}
+              col={c}
+              data={cell}
+              isRowColHighlighted={rowColSet.has(`${r}-${c}`)}
+              isSameNumberHighlighted={sameNumberSet.has(`${r}-${c}`)}
+              isSelected={selectedSet.has(`${r}-${c}`)}
+              showNotes={state.showNotes}
+              sameCandidateValue={sameCandidateValue}
+              onClick={handleCellClick}
+            />
+          );
+        })
       )}
     </div>
   );

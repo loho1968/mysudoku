@@ -9,7 +9,7 @@
  * 功能：模式切换、撤销、笔记开关、提交、计时器、智能笔记、粘滞与笔记状态指示。
  */
 
-import { Segmented, Button, Switch, Tag, App } from "antd";
+import { Segmented, Button, Switch, Tag, App, Typography } from "antd";
 import {
   UndoOutlined,
   BulbOutlined,
@@ -21,15 +21,19 @@ import { hasErrors } from "@/lib/sudoku/validator";
 import type { InputMode } from "@/types/game";
 import type { SubmitSuccessHandler } from "@/hooks/useKeyboard";
 
+const { Text } = Typography;
+
 interface GameToolBarProps {
   /** 提交成功回调：通知父组件调 records API 并展示庆祝提示。 */
   onSubmitSuccess?: SubmitSuccessHandler;
+  /** 当前练习的技巧名（从技巧选择器传入）。null 或空则不显示。 */
+  currentTechnique?: string | null;
 }
 
 /**
  * 游戏工具栏组件。
  */
-export function GameToolBar({ onSubmitSuccess }: GameToolBarProps) {
+export function GameToolBar({ onSubmitSuccess, currentTechnique }: GameToolBarProps) {
   const { message } = App.useApp();
   const { state, dispatch } = useGame();
 
@@ -76,6 +80,18 @@ export function GameToolBar({ onSubmitSuccess }: GameToolBarProps) {
       {/* 顶部：计时器 */}
       <div className="toolbar-timer-row">
         <GameTimer />
+        {currentTechnique && (
+          <Text
+            strong
+            style={{
+              fontSize: 15,
+              marginInlineStart: 8,
+              verticalAlign: "middle",
+            }}
+          >
+            {currentTechnique}
+          </Text>
+        )}
       </div>
 
       {/* 模式切换：答题 / 笔记 */}

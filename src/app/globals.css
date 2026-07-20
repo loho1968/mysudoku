@@ -29,6 +29,9 @@
   /* 候选数字色（亮色） */
   --note-color: #999;
 
+  /* 候选数同数字高亮框（亮色） */
+  --note-candidate-highlight-bg: #bae0ff;
+
   /* 页面背景 */
   --app-bg: #f5f5f5;
 }
@@ -54,6 +57,9 @@ html.dark {
 
   /* 候选数字色（暗色） */
   --note-color: #666;
+
+  /* 候选数同数字高亮框（暗色） */
+  --note-candidate-highlight-bg: #15395b;
 
   /* 页面背景 */
   --app-bg: #141414;
@@ -186,6 +192,12 @@ body {
 .notes-layer .note.active {
   font-weight: 600;
   color: var(--cell-value-user);
+}
+
+.notes-layer .note.candidate-highlight {
+  background: var(--note-candidate-highlight-bg);
+  border-radius: 3px;
+  padding: 1px;
 }
 
 /* ---- 数字输入面板 ---- */

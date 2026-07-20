@@ -151,7 +151,13 @@ function DifficultyPicker({
 
 // ─── GameContent ──────────────────────────────────────────────────
 
-function GameContent({ puzzle }: { puzzle: PuzzleData }) {
+function GameContent({
+  puzzle,
+  currentTechnique,
+}: {
+  puzzle: PuzzleData;
+  currentTechnique?: string | null;
+}) {
   const { state, dispatch } = useGame();
   const { restore } = useLocalProgress();
   const { modal, message } = App.useApp();
@@ -325,7 +331,10 @@ function GameContent({ puzzle }: { puzzle: PuzzleData }) {
           </Space.Compact>
         </div>
 
-        <GameToolBar onSubmitSuccess={handleSubmitSuccess} />
+        <GameToolBar
+          onSubmitSuccess={handleSubmitSuccess}
+          currentTechnique={currentTechnique}
+        />
         <NumberPad />
       </aside>
 
@@ -415,6 +424,7 @@ export default function GamePage() {
   const [puzzleData, setPuzzleData] = useState<PuzzleData | null | "loading">(
     "loading"
   );
+  const [currentTechnique, setCurrentTechnique] = useState<string | null>(null);
 
   useEffect(() => {
     // ── 尝试自动恢复 ──
@@ -453,6 +463,9 @@ export default function GamePage() {
     // ── URL 携带 ?puzzleId=xxx（从技巧选择跳来） ──
     const puzzleId = params.get("puzzleId");
     if (puzzleId) {
+      // 记录技巧名（用于工具栏显示）
+      const tech = params.get("technique");
+      setCurrentTechnique(tech || null);
       (async () => {
         try {
           const res = await fetch(`/api/puzzles/${puzzleId}`);
@@ -493,7 +506,7 @@ export default function GamePage() {
 
   return (
     <GameProvider>
-      <GameContent puzzle={puzzleData} />
+      <GameContent puzzle={puzzleData} currentTechnique={currentTechnique} />
     </GameProvider>
   );
 }

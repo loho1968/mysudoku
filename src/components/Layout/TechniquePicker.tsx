@@ -94,7 +94,7 @@ export function TechniquePicker() {
         const json = await res.json();
         if (json.success && json.data) {
           setOpen(false);
-          router.push(`/game?puzzleId=${json.data.id}`);
+          router.push(`/game?puzzleId=${json.data.id}&technique=${encodeURIComponent(tech)}`);
         } else {
           message.warning(`暂无含「${tech}」技巧的未做题目`);
         }

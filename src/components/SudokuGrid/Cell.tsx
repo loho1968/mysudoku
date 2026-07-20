@@ -31,6 +31,8 @@ interface CellProps {
   isSelected: boolean;
   /** 是否显示候选数笔记 */
   showNotes: boolean;
+  /** 选中格的数字（用于候选数同数字高亮框） */
+  sameCandidateValue: number | null;
   /** 点击事件回调 */
   onClick: (row: number, col: number, event: React.MouseEvent) => void;
 }
@@ -46,6 +48,7 @@ export function Cell({
   isSameNumberHighlighted,
   isSelected,
   showNotes,
+  sameCandidateValue,
   onClick,
 }: CellProps) {
   const classNames = [
@@ -72,7 +75,7 @@ export function Cell({
           {data.value}
         </span>
       ) : showNotes ? (
-        <NotesLayer notes={data.notes} />
+        <NotesLayer notes={data.notes} sameCandidateValue={sameCandidateValue} />
       ) : null}
     </div>
   );
