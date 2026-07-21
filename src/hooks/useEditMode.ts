@@ -15,7 +15,7 @@
  * 设计说明见 .ai/DECISIONS.md D-005。
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { isLocalEnv, LOCAL_DEV_HEADER } from "@/lib/env";
 
 const STORAGE_KEY = "edit_password";
@@ -46,11 +46,16 @@ function getLocalBypass(): boolean {
  * 编辑模式 hook。
  */
 export function useEditMode() {
-  // 初始状态：密码验证过 或 本地旁路开启
-  const [isEditMode, setIsEditMode] = useState(
-    () => !!getStoredPassword() || getLocalBypass()
-  );
+  // 初始状态恒为 false，避免 SSR（无 sessionStorage）与客户端 hydration 不一致。
+  // sessionStorage 的读取推迟到 effect 中，水合后再修正状态。
+  const [isEditMode, setIsEditMode] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+
+  // 客户端水合后：根据 sessionStorage 修正初始状态
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsEditMode(!!getStoredPassword() || getLocalBypass());
+  }, []);
 
   const toggleEditMode = useCallback(() => {
     if (isEditMode) {

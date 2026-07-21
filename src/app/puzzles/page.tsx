@@ -99,7 +99,6 @@ export default function PuzzlesPage() {
               type={isEditMode ? "default" : "primary"}
               icon={isEditMode ? <EyeOutlined /> : <EditOutlined />}
               onClick={toggleEditMode}
-              suppressHydrationWarning
             >
               {isEditMode ? "退出维护模式" : "进入维护模式"}
             </Button>
