@@ -5,6 +5,8 @@ export interface Puzzle {
   difficulty: number;
   /** 涉及技巧名称列表（来自 puzzle_techniques 关联表） */
   techniqueNames?: string[];
+  /** 题号（数据库自增，按 created_at 升序分配） */
+  seq?: number | null;
   remark: string | null;
   created_at: string;
   updated_at: string;

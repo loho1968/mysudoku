@@ -24,12 +24,15 @@ export async function POST(request: NextRequest) {
     const db = getDb();
     const ids: string[] = [];
     const insertPuzzle = db.prepare(
-      'INSERT INTO puzzles (id, puzzle, difficulty) VALUES (?, ?, ?)'
+      "INSERT INTO puzzles (id, puzzle, difficulty, seq) VALUES (?, ?, ?, ?)"
     );
+    const maxRow = db.prepare("SELECT COALESCE(MAX(seq), 0) AS maxSeq FROM puzzles").get() as { maxSeq: number };
+    let nextSeq = maxRow.maxSeq;
 
     for (const puzzle of puzzles) {
       const id = generateId();
-      insertPuzzle.run(id, puzzle, difficulty);
+      nextSeq++;
+      insertPuzzle.run(id, puzzle, difficulty, nextSeq);
       ids.push(id);
     }
 

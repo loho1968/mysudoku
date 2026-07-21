@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
 
     const puzzles = db.prepare(`
       SELECT p.* FROM puzzles p ${where}
-      ORDER BY p.created_at DESC
+      ORDER BY p.seq ASC
       LIMIT ? OFFSET ?
     `).all(...params, pageSize, offset) as any[];
 
@@ -65,10 +65,14 @@ export async function POST(request: NextRequest) {
     const db = getDb();
     const id = generateId();
 
+    // 分配新 seq = MAX(seq) + 1
+    const maxRow = db.prepare("SELECT COALESCE(MAX(seq), 0) AS maxSeq FROM puzzles").get() as { maxSeq: number };
+    const seq = maxRow.maxSeq + 1;
+
     db.prepare(`
-      INSERT INTO puzzles (id, puzzle, solution, difficulty, remark)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(id, puzzle, solution || null, difficulty, remark);
+      INSERT INTO puzzles (id, puzzle, solution, difficulty, remark, seq)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(id, puzzle, solution || null, difficulty, remark, seq);
 
     if (techniqueNames.length > 0) {
       const insertTech = db.prepare('INSERT OR IGNORE INTO puzzle_techniques (puzzle_id, technique) VALUES (?, ?)');
@@ -77,7 +81,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ success: true, data: { id } });
+    return NextResponse.json({ success: true, data: { id, seq } });
   } catch (error) {
     return NextResponse.json({ success: false, error: '添加题目失败' }, { status: 500 });
   }

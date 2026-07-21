@@ -46,6 +46,7 @@ interface PuzzleData {
   id: string;
   puzzle: string;
   solution?: string | null;
+  seq?: number | null;
 }
 
 // ─── Utilities ────────────────────────────────────────────────────
@@ -330,6 +331,13 @@ function GameContent({
               </Button>
             )}
           </Space.Compact>
+          {puzzle.seq != null && (
+            <div style={{ textAlign: "center", marginTop: 4 }}>
+              <Text type="secondary" style={{ fontSize: 13 }}>
+                第 {puzzle.seq} 题
+              </Text>
+            </div>
+          )}
         </div>
 
         <GameToolBar

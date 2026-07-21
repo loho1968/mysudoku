@@ -27,6 +27,7 @@ interface PuzzleData {
   puzzle: string;
   solution?: string;
   difficulty: number;
+  seq?: number | null;
 }
 
 /**

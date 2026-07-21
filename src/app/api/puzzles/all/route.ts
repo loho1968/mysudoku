@@ -19,6 +19,7 @@ interface RawPuzzle {
   solution: string | null;
   difficulty: number;
   remark: string | null;
+  seq: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -27,11 +28,11 @@ export async function GET(_request: NextRequest) {
   try {
     const db = getDb();
 
-    // 1) 全量题目
+    // 1) 全量题目（按 seq 排序，便于显示）
     const puzzles = db.prepare(`
-      SELECT id, puzzle, solution, difficulty, remark, created_at, updated_at
+      SELECT id, puzzle, solution, difficulty, remark, seq, created_at, updated_at
       FROM puzzles
-      ORDER BY created_at ASC
+      ORDER BY seq ASC
     `).all() as RawPuzzle[];
 
     // 2) 全量关联的技巧

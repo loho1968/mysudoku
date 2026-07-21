@@ -66,6 +66,31 @@ function initTables(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_game_records_puzzle ON game_records(puzzle_id);
     CREATE INDEX IF NOT EXISTS idx_puzzle_techniques_technique ON puzzle_techniques(technique);
   `);
+
+  // 迁移：为已存在的 puzzles 表新增 seq 列（题号）
+  migratePuzzleSeq(db);
+}
+
+/**
+ * 迁移：puzzles 表加 seq 列。
+ *
+ * 若已有 puzzles 数据，按 created_at 升序补齐 seq=1..N。
+ * 若空表，仅加列不补数据。
+ */
+function migratePuzzleSeq(db: Database.Database): void {
+  const cols = db.prepare("PRAGMA table_info(puzzles)").all() as { name: string }[];
+  if (cols.some(c => c.name === "seq")) return;
+
+  db.exec("ALTER TABLE puzzles ADD COLUMN seq INTEGER;");
+
+  // 补齐已有题目的 seq
+  const rows = db.prepare(
+    "SELECT id FROM puzzles ORDER BY created_at ASC, rowid ASC"
+  ).all() as { id: string }[];
+  const update = db.prepare("UPDATE puzzles SET seq = ? WHERE id = ?");
+  rows.forEach((row, idx) => update.run(idx + 1, row.id));
+
+  db.exec("CREATE INDEX IF NOT EXISTS idx_puzzles_seq ON puzzles(seq);");
 }
 
 export function closeDb(): void {

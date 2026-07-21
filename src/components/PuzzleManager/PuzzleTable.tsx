@@ -22,6 +22,7 @@ import {
   Popconfirm,
   App,
   Typography,
+  InputNumber,
 } from "antd";
 import {
   PlusOutlined,
@@ -30,9 +31,10 @@ import {
   ImportOutlined,
   SearchOutlined,
   PlayCircleOutlined,
+  ThunderboltOutlined,
 } from "@ant-design/icons";
 import { apiFetch } from "@/hooks/useEditMode";
-import { DIFFICULTY_LABELS, PLAYED_SET_KEY } from "@/config/constants";
+import { DIFFICULTY_LABELS, PLAYED_SET_KEY, TECHNIQUE_LIST } from "@/config/constants";
 import type { Puzzle } from "@/types/sudoku";
 import { PuzzleForm } from "./PuzzleForm";
 import { PuzzleImportModal } from "./PuzzleImportModal";
@@ -79,6 +81,11 @@ export function PuzzleTable({ readOnly = false }: PuzzleTableProps) {
   const [showForm, setShowForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [playedSet, setPlayedSet] = useState<Set<string>>(getPlayedSet);
+  // 出题相关
+  const [genDifficulty, setGenDifficulty] = useState<number>(1);
+  const [genCount, setGenCount] = useState<number>(5);
+  const [genTechnique, setGenTechnique] = useState<string | undefined>(undefined);
+  const [generating, setGenerating] = useState(false);
   // playedSet 在每次 fetchPuzzles 完成时刷新（localStorage 可能被其他标签页修改）
   const refreshPlayedSet = useCallback(() => {
     setPlayedSet(getPlayedSet());
@@ -131,7 +138,63 @@ export function PuzzleTable({ readOnly = false }: PuzzleTableProps) {
     }
   };
 
+  /** 按难度出题。 */
+  const handleGenerateByDifficulty = async () => {
+    setGenerating(true);
+    try {
+      const res = await apiFetch("/api/puzzles/generate", {
+        method: "POST",
+        body: JSON.stringify({ difficulty: genDifficulty, count: genCount }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        message.success(`已生成 ${data.data.generated} 题`);
+        fetchPuzzles();
+      } else {
+        message.error(data.error || "生成失败");
+      }
+    } catch {
+      message.error("生成失败");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  /** 按技巧出题。 */
+  const handleGenerateByTechnique = async () => {
+    if (!genTechnique) {
+      message.warning("请选择一个技巧");
+      return;
+    }
+    setGenerating(true);
+    try {
+      const res = await apiFetch("/api/puzzles/generate", {
+        method: "POST",
+        body: JSON.stringify({ technique: genTechnique, count: 3 }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        message.success(`已生成 ${data.data.generated} 题`);
+        fetchPuzzles();
+      } else {
+        message.error(data.error || "生成失败");
+      }
+    } catch {
+      message.error("生成失败");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   const columns = [
+    {
+      title: "序号",
+      dataIndex: "seq",
+      key: "seq",
+      width: 60,
+      render: (val: number | null) =>
+        val != null ? <Text type="secondary">{val}</Text> : <Text type="secondary">-</Text>,
+    },
     {
       title: "完成",
       key: "played",
@@ -254,6 +317,55 @@ export function PuzzleTable({ readOnly = false }: PuzzleTableProps) {
             }))}
           />
         </Space>
+        {/* 出题按钮组 */}
+        {!readOnly && (
+          <Space size="small">
+            <Select
+              value={genDifficulty}
+              onChange={(v) => setGenDifficulty(v)}
+              style={{ width: 80 }}
+              options={[
+                { value: 1, label: "简单" },
+                { value: 2, label: "中等" },
+                { value: 3, label: "困难" },
+              ]}
+            />
+            <InputNumber
+              value={genCount}
+              onChange={(v) => setGenCount(v ?? 5)}
+              min={1}
+              max={20}
+              style={{ width: 60 }}
+            />
+            <Button
+              icon={<ThunderboltOutlined />}
+              onClick={handleGenerateByDifficulty}
+              loading={generating}
+            >
+              出题
+            </Button>
+            <Select
+              value={genTechnique}
+              onChange={(v) => setGenTechnique(v)}
+              style={{ width: 120 }}
+              placeholder="按技巧"
+              allowClear
+              options={TECHNIQUE_LIST.map((t) => ({
+                value: t,
+                label: t,
+              }))}
+            />
+            <Button
+              icon={<ThunderboltOutlined />}
+              onClick={handleGenerateByTechnique}
+              loading={generating}
+              disabled={!genTechnique}
+            >
+              出题
+            </Button>
+          </Space>
+        )}
+        {/* 原有导入/新增按钮 */}
         {!readOnly && (
           <Space size="small">
             <Button

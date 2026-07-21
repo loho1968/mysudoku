@@ -24,6 +24,7 @@ interface UpsertPuzzle {
   solution: string | null;
   difficulty: number;
   remark: string | null;
+  seq?: number | null;
   created_at?: string;
   updated_at?: string;
   techniqueNames?: string[];
@@ -55,14 +56,15 @@ export async function POST(request: NextRequest) {
     const db = getDb();
 
     const upsertPuzzleStmt = db.prepare(`
-      INSERT INTO puzzles (id, puzzle, solution, difficulty, remark, created_at, updated_at)
-      VALUES (@id, @puzzle, @solution, @difficulty, @remark,
+      INSERT INTO puzzles (id, puzzle, solution, difficulty, remark, seq, created_at, updated_at)
+      VALUES (@id, @puzzle, @solution, @difficulty, @remark, @seq,
         COALESCE(@created_at, datetime('now')), datetime('now'))
       ON CONFLICT(id) DO UPDATE SET
         puzzle = excluded.puzzle,
         solution = excluded.solution,
         difficulty = excluded.difficulty,
         remark = excluded.remark,
+        seq = COALESCE(excluded.seq, puzzles.seq),
         updated_at = datetime('now'),
         _modified = 1
     `);
@@ -75,12 +77,23 @@ export async function POST(request: NextRequest) {
       for (const p of puzzles) {
         if (!p.id || !p.puzzle || p.puzzle.length !== 81) continue;
 
+        // 若未提供 seq，分配新序号（仅对新增记录）
+        let seq = p.seq ?? null;
+        if (seq === null) {
+          const exists = db.prepare("SELECT 1 FROM puzzles WHERE id = ?").get(p.id);
+          if (!exists) {
+            const maxRow = db.prepare("SELECT COALESCE(MAX(seq), 0) AS maxSeq FROM puzzles").get() as { maxSeq: number };
+            seq = maxRow.maxSeq + 1;
+          }
+        }
+
         upsertPuzzleStmt.run({
           id: p.id,
           puzzle: p.puzzle,
           solution: p.solution ?? null,
           difficulty: p.difficulty ?? 0,
           remark: p.remark ?? null,
+          seq,
           created_at: p.created_at ?? null,
         });
 
