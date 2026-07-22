@@ -19,6 +19,8 @@ export const PLAYED_SET_KEY = 'mysudoku_played_puzzles';
 export const SYNC_SERVER_KEY = 'mysudoku_sync_server';
 /** 同步用：远程服务器编辑密码（localStorage 记忆） */
 export const SYNC_PASSWORD_KEY = 'mysudoku_sync_password';
+/** 题库本地缓存（PWA 离线访问） */
+export const PUZZLES_CACHE_KEY = 'mysudoku_puzzles_cache';
 
 export const DIFFICULTY_LABELS: Record<number, string> = {
   0: '未分类',

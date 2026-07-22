@@ -30,6 +30,10 @@ import { EditModeModal } from "@/components/Auth/EditModeModal";
 import { submitPuzzleRecord, formatElapsed } from "@/lib/gameRecord";
 import { v4 as generateId } from "uuid";
 import {
+  readPuzzleCache,
+  getCachedPuzzleById,
+} from "@/lib/puzzleCache";
+import {
   useLocalProgress,
   getSavedProgress,
   getLastPuzzle,
@@ -62,7 +66,7 @@ function getExcludeIds(): string {
   }
 }
 
-/** 调随机出题 API。 */
+/** 调随机出题 API；失败时从本地缓存抽样（离线回退）。 */
 async function fetchRandomPuzzle(difficulty: number): Promise<PuzzleData | null> {
   const exclude = getExcludeIds();
   const url = `/api/puzzles/random?difficulty=${difficulty}${
@@ -73,9 +77,60 @@ async function fetchRandomPuzzle(difficulty: number): Promise<PuzzleData | null>
     const json = await res.json();
     if (json.success) return json.data;
   } catch {
-    // 静默失败，返回 null
+    // 网络失败：回退到本地缓存
+    return fetchRandomFromCache(difficulty);
   }
   return null;
+}
+
+/**
+ * 从本地缓存随机抽一道题（离线回退）。
+ * 按 difficulty 过滤，排除已做过集合。
+ */
+function fetchRandomFromCache(difficulty: number): PuzzleData | null {
+  const cache = readPuzzleCache();
+  if (cache.length === 0) return null;
+  const excludeArr = getExcludeIds()
+    .split(",")
+    .filter(Boolean);
+  const excludeSet = new Set(excludeArr);
+  const candidates = cache.filter(
+    (p) => p.difficulty === difficulty && !excludeSet.has(p.id)
+  );
+  const pool = candidates.length > 0 ? candidates : cache.filter((p) => p.difficulty === difficulty);
+  if (pool.length === 0) return null;
+  const picked = pool[Math.floor(Math.random() * pool.length)];
+  return {
+    id: picked.id,
+    puzzle: picked.puzzle,
+    solution: picked.solution ?? undefined,
+    seq: picked.seq ?? undefined,
+  };
+}
+
+/**
+ * 按 id 加载题目；失败时从本地缓存读（离线回退）。
+ */
+async function fetchPuzzleById(id: string): Promise<PuzzleData | null> {
+  try {
+    const res = await fetch(`/api/puzzles/${id}`);
+    if (res.ok) {
+      const json = await res.json();
+      if (json.success) return json.data;
+    }
+  } catch {
+    // 网络失败：回退到本地缓存
+  }
+  // 缓存回退
+  const cached = getCachedPuzzleById(id);
+  return cached
+    ? {
+        id: cached.id,
+        puzzle: cached.puzzle,
+        solution: cached.solution ?? undefined,
+        seq: cached.seq ?? undefined,
+      }
+    : null;
 }
 
 // ─── DifficultyPicker ─────────────────────────────────────────────
@@ -99,7 +154,11 @@ function DifficultyPicker({
     if (data) {
       onPick(data);
     } else {
-      setErrorMsg("该难度暂无题目，请先通过题库维护页面添加。");
+      setErrorMsg(
+        typeof navigator !== "undefined" && navigator.onLine === false
+          ? "离线状态：暂无缓存的该难度题目，请使用粘贴按钮或联网后再试。"
+          : "该难度暂无题目，请先通过题库维护页面添加。"
+      );
     }
     setLoadingDiff(null);
   };
@@ -469,13 +528,8 @@ function GamePageInner() {
     if (puzzleId) {
       setCurrentTechnique(searchParams.get("technique") || null);
       (async () => {
-        try {
-          const res = await fetch(`/api/puzzles/${puzzleId}`);
-          const json = await res.json();
-          setPuzzleData(json.success ? json.data : null);
-        } catch {
-          setPuzzleData(null);
-        }
+        const data = await fetchPuzzleById(puzzleId);
+        setPuzzleData(data);
       })();
       return;
     }

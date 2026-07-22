@@ -12,6 +12,7 @@
 import { Layout } from "antd";
 import { AppHeader } from "@/components/Layout/AppHeader";
 import { AppFooter } from "@/components/Layout/AppFooter";
+import { CacheWarmer } from "@/components/Layout/CacheWarmer";
 
 /**
  * 应用外壳。
@@ -20,6 +21,7 @@ import { AppFooter } from "@/components/Layout/AppFooter";
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <Layout style={{ minHeight: "100vh" }}>
+      <CacheWarmer />
       <AppHeader />
       <Layout.Content
         style={{ flex: 1, overflow: "auto", display: "flex" }}
