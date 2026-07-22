@@ -329,19 +329,29 @@ body {
   font-weight: 600;
 }
 
-.toolbar-actions {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
+/* 单行操作栏：粘贴/撤销/橡皮擦/提交/笔记开关 */
+.toolbar-actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
 }
 
-.toolbar-actions .ant-btn {
+.toolbar-actions-row .ant-btn {
   height: calc(var(--cell-font-size) * 1.2);
+  min-width: calc(var(--cell-font-size) * 1.2);
+  padding: 0 10px;
   font-size: calc(var(--cell-font-size) * 0.5);
+  flex: 0 0 auto;
 }
 
-.toolbar-actions .ant-btn .anticon {
+.toolbar-actions-row .ant-btn .anticon {
   font-size: calc(var(--cell-font-size) * 0.55);
+}
+
+/* 提交按钮稍微宽一点（带文字） */
+.toolbar-actions-row .ant-btn:not(:has(.anticon-only)) {
+  flex: 1 1 auto;
 }
 
 .toolbar-notes-toggle {
@@ -355,7 +365,29 @@ body {
 }
 
 .toolbar-notes-toggle .ant-switch {
-  min-width: 64px;
+  min-width: 48px;
+}
+
+/* 数字按钮错误闪烁动画 */
+@keyframes shake-num {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-4px); background: var(--cell-value-error); color: #fff; }
+  40% { transform: translateX(4px); background: var(--cell-value-error); color: #fff; }
+  60% { transform: translateX(-3px); background: var(--cell-value-error); color: #fff; }
+  80% { transform: translateX(3px); background: var(--cell-value-error); color: #fff; }
+}
+
+.number-btn.shake {
+  animation: shake-num 0.4s ease;
+}
+
+/* 题号 + 保存按钮 meta 行 */
+.game-panel-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
+  gap: 8px;
 }
 
 .toolbar-tags {

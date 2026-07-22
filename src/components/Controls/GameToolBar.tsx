@@ -4,21 +4,27 @@
  * @file GameToolBar.tsx
  * @author loho
  *
- * 游戏工具栏。
+ * 游戏工具栏（精简版）。
  *
- * 功能：模式切换、撤销、笔记开关、提交、计时器、智能笔记、粘滞与笔记状态指示。
+ * 单行布局：粘贴 / 撤销 / 橡皮擦 / 提交 / 笔记开关
+ * - 粘贴、撤销、橡皮擦：纯图标按钮（外部传入 onPaste）
+ * - 智能笔记：固定开启，不再有切换按钮
+ * - 笔记按钮：toggle 候选数显示开关
+ *
+ * 桌面端：闪烁提示 + message
+ * 移动端：闪烁 + 震动 + 禁止输入（由 useGame/useKeyboard 处理）
  */
 
-import { Segmented, Button, Switch, Tag, App, Typography } from "antd";
+import { Button, Switch, App, Typography } from "antd";
 import {
   UndoOutlined,
-  BulbOutlined,
   CheckCircleOutlined,
+  SnippetsOutlined,
+  DeleteOutlined,
 } from "@ant-design/icons";
 import { useGame } from "@/contexts/GameContext";
 import { GameTimer } from "@/components/Controls/GameTimer";
 import { hasErrors } from "@/lib/sudoku/validator";
-import type { InputMode } from "@/types/game";
 import type { SubmitSuccessHandler } from "@/hooks/useKeyboard";
 
 const { Text } = Typography;
@@ -28,22 +34,26 @@ interface GameToolBarProps {
   onSubmitSuccess?: SubmitSuccessHandler;
   /** 当前练习的技巧名（从技巧选择器传入）。null 或空则不显示。 */
   currentTechnique?: string | null;
+  /** 粘贴按钮回调（由父组件 game page 提供，处理剪贴板读取）。 */
+  onPaste?: () => void;
 }
 
 /**
  * 游戏工具栏组件。
  */
-export function GameToolBar({ onSubmitSuccess, currentTechnique }: GameToolBarProps) {
+export function GameToolBar({
+  onSubmitSuccess,
+  currentTechnique,
+  onPaste,
+}: GameToolBarProps) {
   const { message } = App.useApp();
   const { state, dispatch } = useGame();
 
   const handleSubmit = () => {
-    // 已提交过 → 直接提示，不重复处理
     if (state.isSubmitted) {
       message.info("本题已完成");
       return;
     }
-    // 未填满 → 禁止提交
     const allFilled = state.grid.every((row) =>
       row.every((cell) => cell.value !== null)
     );
@@ -51,7 +61,6 @@ export function GameToolBar({ onSubmitSuccess, currentTechnique }: GameToolBarPr
       message.warning("棋盘未填满，无法提交");
       return;
     }
-    // 校验错误：有错 → 仅提示；无错 → 视为完成
     const numberGrid = state.grid.map((row) =>
       row.map((cell) => cell.value ?? 0)
     );
@@ -67,17 +76,9 @@ export function GameToolBar({ onSubmitSuccess, currentTechnique }: GameToolBarPr
     }
   };
 
-  const handleSmartNotes = () => {
-    // 智能笔记按钮：计算候选数并自动打开显示开关
-    if (!state.showNotes) {
-      dispatch({ type: "SET_SHOW_NOTES", show: true });
-    }
-    dispatch({ type: "SMART_NOTES" });
-  };
-
   return (
     <div className="game-toolbar">
-      {/* 顶部：计时器 */}
+      {/* 计时器 + 技巧名 */}
       <div className="toolbar-timer-row">
         <GameTimer />
         {currentTechnique && (
@@ -94,48 +95,43 @@ export function GameToolBar({ onSubmitSuccess, currentTechnique }: GameToolBarPr
         )}
       </div>
 
-      {/* 模式切换：答题 / 笔记 */}
-      <Segmented<InputMode>
-        block
-        size="large"
-        options={[
-          { value: "answer", label: "答题" },
-          { value: "note", label: "笔记" },
-        ]}
-        value={state.inputMode}
-        onChange={(value) => dispatch({ type: "SET_INPUT_MODE", mode: value })}
-      />
-
-      {/* 功能按钮 2x2 网格 */}
-      <div className="toolbar-actions">
+      {/* 单行操作栏 */}
+      <div className="toolbar-actions-row">
+        {onPaste && (
+          <Button
+            icon={<SnippetsOutlined />}
+            onClick={onPaste}
+            title="粘贴题目"
+          />
+        )}
         <Button
           icon={<UndoOutlined />}
           disabled={state.currentStepIndex < 0 || state.isSubmitted}
           onClick={() => dispatch({ type: "UNDO" })}
-          block
-        >
-          撤销
-        </Button>
+          title="撤销"
+        />
         <Button
-          icon={<BulbOutlined />}
-          onClick={handleSmartNotes}
+          icon={<DeleteOutlined />}
           disabled={state.isSubmitted}
-          block
-        >
-          智能笔记
-        </Button>
+          onClick={() => {
+            for (const [r, c] of state.selectedCells) {
+              dispatch({ type: "SET_CELL_VALUE", row: r, col: c, value: null });
+            }
+          }}
+          title="橡皮擦"
+        />
         <Button
           icon={<CheckCircleOutlined />}
           onClick={handleSubmit}
           disabled={state.isSubmitted}
-          block
+          title="提交"
         >
           {state.isSubmitted ? "已完成" : "提交"}
         </Button>
-        <div className="toolbar-notes-toggle">
+        <div className="toolbar-notes-toggle" title="显示候选数">
           <Switch
-            checkedChildren="笔记开"
-            unCheckedChildren="笔记关"
+            checkedChildren="笔记"
+            unCheckedChildren="笔记"
             checked={state.showNotes}
             onChange={(checked) =>
               dispatch({ type: "SET_SHOW_NOTES", show: checked })
@@ -147,18 +143,20 @@ export function GameToolBar({ onSubmitSuccess, currentTechnique }: GameToolBarPr
       {/* 状态标签 */}
       <div className="toolbar-tags">
         {state.noteType === "smart" && !state.smartNotesExpired && (
-          <Tag color="purple">智能笔记</Tag>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            智能笔记
+          </Text>
         )}
-        {state.noteType === "smart" && state.smartNotesExpired && (
-          <Tag color="warning" style={{ borderColor: "#faad14", color: "#ad8b00" }}>
-            智能笔记过期
-          </Tag>
-        )}
-        {state.noteType === "normal" && <Tag>普通笔记</Tag>}
         {state.isStickyMode && (
-          <Tag color="blue">粘滞: {state.stickyNumber}</Tag>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            粘滞: {state.stickyNumber}
+          </Text>
         )}
-        {state.isSubmitted && <Tag color="success">已完成</Tag>}
+        {state.isSubmitted && (
+          <Text type="success" style={{ fontSize: 12 }}>
+            已完成
+          </Text>
+        )}
       </div>
     </div>
   );

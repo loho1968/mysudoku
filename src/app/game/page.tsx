@@ -370,38 +370,30 @@ function GameContent({
         <SudokuGrid />
       </div>
       <aside className="game-layout-panel">
-        {/* 顶部工具条：粘贴 + 保存 */}
-        <div className="game-panel-tools">
-          <Space.Compact block>
-            <Button
-              icon={<SnippetsOutlined />}
-              onClick={handlePaste}
-              block
-            >
-              粘贴
-            </Button>
+        {/* 题号 + 保存按钮（仅粘贴模式显示）*/}
+        {(puzzle.seq != null || (isPasted && !puzzleSaved)) && (
+          <div className="game-panel-meta">
+            {puzzle.seq != null && (
+              <Text type="secondary" style={{ fontSize: 13 }}>
+                第 {puzzle.seq} 题
+              </Text>
+            )}
             {isPasted && !puzzleSaved && (
               <Button
+                size="small"
                 icon={<SaveOutlined />}
                 onClick={handleSaveClick}
-                block
               >
                 保存题目
               </Button>
             )}
-          </Space.Compact>
-          {puzzle.seq != null && (
-            <div style={{ textAlign: "center", marginTop: 4 }}>
-              <Text type="secondary" style={{ fontSize: 13 }}>
-                第 {puzzle.seq} 题
-              </Text>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
 
         <GameToolBar
           onSubmitSuccess={handleSubmitSuccess}
           currentTechnique={currentTechnique}
+          onPaste={handlePaste}
         />
         <NumberPad />
       </aside>

@@ -24,6 +24,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { App } from "antd";
 import { useGame } from "@/contexts/GameContext";
 import { hasErrors } from "@/lib/sudoku/validator";
+import { getCandidates } from "@/lib/sudoku/candidates";
 
 /** 提交成功回调签名：参数为题目 ID 与用时（秒）。 */
 export type SubmitSuccessHandler = (puzzleId: string, elapsedSeconds: number) => void;
@@ -81,6 +82,21 @@ export function useKeyboard(onSubmitSuccess?: SubmitSuccessHandler) {
         if (state.selectedCells.length === 0) return;
 
         if (state.inputMode === "answer") {
+          // 候选数校验：开启笔记显示时，非候选数拒绝输入（桌面端键盘）
+          if (state.showNotes) {
+            const numberGrid = state.grid.map((row) =>
+              row.map((cc) => cc.value ?? 0)
+            );
+            const hasInvalid = state.selectedCells.some(([r, c]) => {
+              const cell = state.grid[r]?.[c];
+              if (!cell || cell.isGiven || cell.value !== null) return false;
+              return !getCandidates(numberGrid, r, c).has(num);
+            });
+            if (hasInvalid) {
+              message.warning(`${num} 不是选中格的候选数`);
+              return;
+            }
+          }
           for (const [r, c] of state.selectedCells) {
             dispatch({ type: "SET_CELL_VALUE", row: r, col: c, value: num });
           }

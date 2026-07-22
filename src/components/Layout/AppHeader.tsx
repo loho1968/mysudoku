@@ -12,7 +12,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { Layout, Typography, Space, Button, Tooltip, theme as antdTheme } from "antd";
+import { Layout, Space, Button, Tooltip, theme as antdTheme } from "antd";
 import { ExportOutlined, DatabaseOutlined, WifiOutlined, DisconnectOutlined } from "@ant-design/icons";
 import { usePathname } from "next/navigation";
 import { ThemeToggle } from "@/components/Theme/ThemeToggle";
@@ -21,7 +21,6 @@ import { PuzzlePicker } from "@/components/Layout/PuzzlePicker";
 import { TechniquePicker } from "@/components/Layout/TechniquePicker";
 
 const { Header } = Layout;
-const { Title } = Typography;
 
 /** 技巧练习外链（sudoku.coach） */
 const PRACTICE_URL =
@@ -70,9 +69,7 @@ export function AppHeader() {
         color: token.colorText,
       }}
     >
-      <Title level={4} style={{ margin: 0, color: token.colorTextHeading }}>
-        mysudoku
-      </Title>
+      <span style={{ flex: 1 }} />
       <Space size="middle">
         <Button
           type="link"
