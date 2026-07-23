@@ -7,7 +7,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "mysudoku — 数独学习与练习",
   description: "个人学习和练习数独",
-  manifest: "/manifest.json",
+  manifest: "/sudoku/manifest.json",
 };
 
 export const viewport: Viewport = {

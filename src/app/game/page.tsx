@@ -33,6 +33,7 @@ import {
   readPuzzleCache,
   getCachedPuzzleById,
 } from "@/lib/puzzleCache";
+import { api } from "@/config/runtime";
 import {
   useLocalProgress,
   getSavedProgress,
@@ -69,9 +70,9 @@ function getExcludeIds(): string {
 /** 调随机出题 API；失败时从本地缓存抽样（离线回退）。 */
 async function fetchRandomPuzzle(difficulty: number): Promise<PuzzleData | null> {
   const exclude = getExcludeIds();
-  const url = `/api/puzzles/random?difficulty=${difficulty}${
+  const url = api(`/api/puzzles/random?difficulty=${difficulty}${
     exclude ? `&exclude=${encodeURIComponent(exclude)}` : ""
-  }`;
+  }`);
   try {
     const res = await fetch(url);
     const json = await res.json();
@@ -113,7 +114,7 @@ function fetchRandomFromCache(difficulty: number): PuzzleData | null {
  */
 async function fetchPuzzleById(id: string): Promise<PuzzleData | null> {
   try {
-    const res = await fetch(`/api/puzzles/${id}`);
+    const res = await fetch(api(`/api/puzzles/${id}`));
     if (res.ok) {
       const json = await res.json();
       if (json.success) return json.data;
@@ -315,7 +316,7 @@ function GameContent({
     if (!pastedPuzzleStr) return;
     setSaveLoading(true);
     try {
-      const res = await apiFetch("/api/puzzles", {
+      const res = await apiFetch(api("/api/puzzles"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

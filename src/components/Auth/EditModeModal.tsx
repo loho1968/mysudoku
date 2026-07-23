@@ -11,6 +11,7 @@
 import { useState } from "react";
 import { Modal, Input, Button, Typography, App, Space } from "antd";
 import { LockOutlined } from "@ant-design/icons";
+import { api } from "@/config/runtime";
 
 const { Text } = Typography;
 
@@ -35,7 +36,7 @@ export function EditModeModal({
   const handleSubmit = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/auth", {
+      const res = await fetch(api("/api/auth"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password }),

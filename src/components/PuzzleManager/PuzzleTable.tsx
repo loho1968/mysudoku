@@ -35,6 +35,7 @@ import {
 } from "@ant-design/icons";
 import { apiFetch } from "@/hooks/useEditMode";
 import { DIFFICULTY_LABELS, PLAYED_SET_KEY, TECHNIQUE_LIST } from "@/config/constants";
+import { api } from "@/config/runtime";
 import type { Puzzle } from "@/types/sudoku";
 import { PuzzleForm } from "./PuzzleForm";
 import { PuzzleImportModal } from "./PuzzleImportModal";
@@ -101,7 +102,7 @@ export function PuzzleTable({ readOnly = false }: PuzzleTableProps) {
       if (keyword) params.set("keyword", keyword);
       if (difficulty !== undefined) params.set("difficulty", String(difficulty));
 
-      const res = await fetch(`/api/puzzles?${params}`);
+      const res = await fetch(api(`/api/puzzles?${params}`));
       const data = await res.json();
       if (data.success) {
         setPuzzles(data.data.list);
@@ -125,7 +126,7 @@ export function PuzzleTable({ readOnly = false }: PuzzleTableProps) {
 
   const handleDelete = async (id: string) => {
     try {
-      const res = await apiFetch(`/api/puzzles/${id}`, { method: "DELETE" });
+      const res = await apiFetch(api(`/api/puzzles/${id}`), { method: "DELETE" });
       const data = await res.json();
       if (data.success) {
         message.success("已删除");
@@ -142,7 +143,7 @@ export function PuzzleTable({ readOnly = false }: PuzzleTableProps) {
   const handleGenerateByDifficulty = async () => {
     setGenerating(true);
     try {
-      const res = await apiFetch("/api/puzzles/generate", {
+      const res = await apiFetch(api("/api/puzzles/generate"), {
         method: "POST",
         body: JSON.stringify({ difficulty: genDifficulty, count: genCount }),
       });
@@ -168,7 +169,7 @@ export function PuzzleTable({ readOnly = false }: PuzzleTableProps) {
     }
     setGenerating(true);
     try {
-      const res = await apiFetch("/api/puzzles/generate", {
+      const res = await apiFetch(api("/api/puzzles/generate"), {
         method: "POST",
         body: JSON.stringify({ technique: genTechnique, count: 3 }),
       });

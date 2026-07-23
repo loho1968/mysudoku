@@ -25,6 +25,7 @@ import {
 import { isLocalEnv } from "@/lib/env";
 import { apiFetch } from "@/hooks/useEditMode";
 import { SYNC_SERVER_KEY, SYNC_PASSWORD_KEY } from "@/config/constants";
+import { api } from "@/config/runtime";
 import type { Puzzle } from "@/types/sudoku";
 
 const { Text } = Typography;
@@ -149,7 +150,7 @@ export function SyncBar({ onDone }: SyncBarProps) {
       const { puzzles } = remoteData.data;
 
       // 2) 写入本地库（apiFetch 自动附加 X-Local-Dev 头）
-      const upsertRes = await apiFetch("/api/puzzles/upsert", {
+      const upsertRes = await apiFetch(api("/api/puzzles/upsert"), {
         method: "POST",
         body: JSON.stringify({ puzzles }),
       });
@@ -203,7 +204,7 @@ export function SyncBar({ onDone }: SyncBarProps) {
       }
 
       // 1) 从本地拉取全量（GET 公开，不需凭据）
-      const localRes = await fetch("/api/puzzles/all");
+      const localRes = await fetch(api("/api/puzzles/all"));
       if (!localRes.ok) {
         hide();
         message.error(`读取本地库失败：${localRes.status}`);

@@ -14,6 +14,7 @@
 
 import { useEffect } from "react";
 import { writePuzzleCache, type PuzzleCacheEntry } from "@/lib/puzzleCache";
+import { api } from "@/config/runtime";
 
 /**
  * 题库缓存预热组件（无 UI）。
@@ -21,7 +22,7 @@ import { writePuzzleCache, type PuzzleCacheEntry } from "@/lib/puzzleCache";
 export function CacheWarmer() {
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/puzzles/all")
+    fetch(api("/api/puzzles/all"))
       .then((res) => res.json())
       .then((data: { success?: boolean; data?: { puzzles: PuzzleCacheEntry[] } }) => {
         if (cancelled) return;

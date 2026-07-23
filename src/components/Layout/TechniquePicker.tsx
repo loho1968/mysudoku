@@ -17,6 +17,7 @@ import { useRouter } from "next/navigation";
 import { Button, Modal, Space, Tag, Typography, Spin, App } from "antd";
 import { BulbOutlined } from "@ant-design/icons";
 import { TECHNIQUE_GROUPS, PLAYED_SET_KEY } from "@/config/constants";
+import { api } from "@/config/runtime";
 
 const { Text } = Typography;
 
@@ -52,7 +53,7 @@ export function TechniquePicker() {
   const fetchTechniques = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/puzzles/techniques");
+      const res = await fetch(api("/api/puzzles/techniques"));
       const data = await res.json();
       if (data.success) {
         setTechniques(data.data);
@@ -86,7 +87,7 @@ export function TechniquePicker() {
       setFetchingId(tech);
       try {
         const exclude = getExcludeIds();
-        let url = `/api/puzzles/random?techniques=${encodeURIComponent(tech)}`;
+        let url = api(`/api/puzzles/random?techniques=${encodeURIComponent(tech)}`);
         if (exclude) {
           url += `&exclude=${encodeURIComponent(exclude)}`;
         }

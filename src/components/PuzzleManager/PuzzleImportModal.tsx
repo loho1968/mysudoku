@@ -11,6 +11,7 @@
 import { useState } from "react";
 import { Modal, Input, Button, Typography, App, Space } from "antd";
 import { apiFetch } from "@/hooks/useEditMode";
+import { api } from "@/config/runtime";
 
 const { TextArea } = Input;
 const { Text } = Typography;
@@ -41,7 +42,7 @@ export function PuzzleImportModal({
 
     setLoading(true);
     try {
-      const res = await apiFetch("/api/puzzles/import", {
+      const res = await apiFetch(api("/api/puzzles/import"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),

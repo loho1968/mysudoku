@@ -16,6 +16,7 @@ import {
   App,
 } from "antd";
 import { apiFetch } from "@/hooks/useEditMode";
+import { api } from "@/config/runtime";
 import { DIFFICULTY_LABELS, TECHNIQUE_LIST } from "@/config/constants";
 import type { Puzzle } from "@/types/sudoku";
 
@@ -71,7 +72,7 @@ export function PuzzleForm({
         techniqueNames: values.techniqueNames || [],
       };
 
-      const url = isEdit ? `/api/puzzles/${puzzle!.id}` : "/api/puzzles";
+      const url = api(isEdit ? `/api/puzzles/${puzzle!.id}` : "/api/puzzles");
       const method = isEdit ? "PUT" : "POST";
 
       const res = await apiFetch(url, {

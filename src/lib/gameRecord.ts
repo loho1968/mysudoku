@@ -14,6 +14,7 @@
  */
 
 import { PLAYED_SET_KEY } from "@/config/constants";
+import { api } from "@/config/runtime";
 
 /**
  * 读 localStorage 已做过集合。
@@ -83,7 +84,7 @@ export async function submitPuzzleRecord(
   }
 
   try {
-    await fetch(`/api/puzzles/${puzzleId}/records`, {
+    await fetch(api(`/api/puzzles/${puzzleId}/records`), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

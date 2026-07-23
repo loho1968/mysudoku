@@ -18,6 +18,7 @@ import { GameToolBar } from "@/components/Controls/GameToolBar";
 import { useKeyboard, type SubmitSuccessHandler } from "@/hooks/useKeyboard";
 import { useLocalProgress, markPlayed, saveLastPuzzle } from "@/hooks/useLocalProgress";
 import { submitPuzzleRecord, formatElapsed } from "@/lib/gameRecord";
+import { api, BASE_PATH } from "@/config/runtime";
 import type { GameAction } from "@/types/game";
 
 const { Title } = Typography;
@@ -102,7 +103,7 @@ export default function GameWithPuzzlePage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/puzzles/${id}`);
+      const res = await fetch(api(`/api/puzzles/${id}`));
       const data = await res.json();
       if (data.success) {
         setPuzzle(data.data);
@@ -144,7 +145,7 @@ export default function GameWithPuzzlePage() {
             <Title level={4}>{error}</Title>
             <Button
               type="primary"
-              onClick={() => (window.location.href = "/game")}
+              onClick={() => (window.location.href = `${BASE_PATH}/game`)}
             >
               返回游戏
             </Button>
